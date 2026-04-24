@@ -43,6 +43,7 @@ import {
   refreshLocalGhAuthStatus,
   switchLocalGhAuthAccount,
 } from '../../server/gh-auth.functions'
+import type { AppMessages } from '../../messages'
 import type { GhAuthAccount, GhAuthStatus } from '../../server/gh-auth.server'
 import { useAppPreferences } from './app-settings-provider'
 
@@ -116,6 +117,69 @@ function getActiveGithubAccountIdentity(status: GhAuthStatus | null) {
     status.activeAccount?.host === GH_HOSTNAME_FALLBACK
     ? `${status.activeAccount.host}:${status.activeAccount.login}:${status.activeAccount.state}`
     : null
+}
+
+type AccountGitHubLinksSubmenuProps = {
+  accountMenuMessages: AppMessages['accountMenu']
+  activeAccount: GhAuthAccount
+}
+
+export function AccountGitHubLinksSubmenu({
+  accountMenuMessages,
+  activeAccount,
+}: AccountGitHubLinksSubmenuProps) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <ExternalLinkIcon />
+        <span>{accountMenuMessages.openOnGitHub}</span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-64">
+        <DropdownMenuItem
+          render={
+            <a
+              href={buildProfileUrl(activeAccount)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={accountMenuMessages.openProfile}
+            />
+          }
+        >
+          <UserRoundIcon />
+          <span>{accountMenuMessages.openProfile}</span>
+          <ExternalLinkIcon className="ml-auto opacity-60" />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={
+            <a
+              href={buildRepositoriesUrl(activeAccount)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={accountMenuMessages.openRepositories}
+            />
+          }
+        >
+          <FolderGitIcon />
+          <span>{accountMenuMessages.openRepositories}</span>
+          <ExternalLinkIcon className="ml-auto opacity-60" />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={
+            <a
+              href={buildOrganizationsUrl(activeAccount)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={accountMenuMessages.openOrganizations}
+            />
+          }
+        >
+          <BuildingIcon />
+          <span>{accountMenuMessages.openOrganizations}</span>
+          <ExternalLinkIcon className="ml-auto opacity-60" />
+        </DropdownMenuItem>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
 }
 
 export function AccountMenu() {
@@ -340,48 +404,10 @@ export function AccountMenu() {
               <DropdownMenuSeparator />
 
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  render={
-                    <a
-                      href={buildProfileUrl(activeAccount)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={accountMenuMessages.openProfile}
-                    />
-                  }
-                >
-                  <UserRoundIcon />
-                  <span>{accountMenuMessages.openProfile}</span>
-                  <ExternalLinkIcon className="ml-auto opacity-60" />
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  render={
-                    <a
-                      href={buildRepositoriesUrl(activeAccount)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={accountMenuMessages.openRepositories}
-                    />
-                  }
-                >
-                  <FolderGitIcon />
-                  <span>{accountMenuMessages.openRepositories}</span>
-                  <ExternalLinkIcon className="ml-auto opacity-60" />
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  render={
-                    <a
-                      href={buildOrganizationsUrl(activeAccount)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={accountMenuMessages.openOrganizations}
-                    />
-                  }
-                >
-                  <BuildingIcon />
-                  <span>{accountMenuMessages.openOrganizations}</span>
-                  <ExternalLinkIcon className="ml-auto opacity-60" />
-                </DropdownMenuItem>
+                <AccountGitHubLinksSubmenu
+                  activeAccount={activeAccount}
+                  accountMenuMessages={accountMenuMessages}
+                />
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />

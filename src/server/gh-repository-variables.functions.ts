@@ -24,13 +24,13 @@ const deleteRepositoryVariableSchema = z.object({
 
 export const getManageableRepositories = createServerFn({
   method: 'GET',
-}).handler(async () => listManageableRepositories())
+}).handler(() => listManageableRepositories())
 
 export const getRepositoryVariables = createServerFn({
   method: 'POST',
 })
   .inputValidator(repositoryInputSchema)
-  .handler(async ({ data }) => listRepositoryVariables(data.repository))
+  .handler(({ data }) => listRepositoryVariables(data.repository))
 
 export const saveRepositoryVariable = createServerFn({
   method: 'POST',

@@ -1,10 +1,17 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { z } from 'zod'
+import { CLI_LOGIN_COMMAND } from '../lib/product'
 import type { GhAuthStatus } from './gh-auth.server'
 import { GH_CLI_INSTALL_URL, getGhAuthStatus } from './gh-auth.server'
+import {
+  getCurrentRequestSignal,
+  resolveAbortedReadRequestFallback,
+} from './request-abort.server'
 
 const execFileAsync = promisify(execFile)
+const VARIABLE_READ_BACK_MAX_ATTEMPTS = 5
+const VARIABLE_READ_BACK_RETRY_DELAY_MS = 200
 
 const repositoryPageSchema = z.object({
   full_name: z.string(),
@@ -47,6 +54,17 @@ type ExecRunner = (
   stdout: string
 }>
 
+type ExecRunnerWithOptions = (
+  file: string,
+  args: string[],
+  options?: {
+    signal?: AbortSignal
+  },
+) => Promise<{
+  stderr: string
+  stdout: string
+}>
+
 type ExecError = Error & {
   code?: number | string
   stderr?: string
@@ -54,6 +72,7 @@ type ExecError = Error & {
 }
 
 export type GhRepositorySummary = {
+  canManageEnvironments?: boolean
   canManageVariables: boolean
   isPrivate: boolean
   name: string
@@ -76,12 +95,31 @@ export type UpsertRepositoryVariableResult = {
   variable: GhRepositoryVariable
 }
 
-function defaultExecRunner(file: string, args: string[]) {
-  return execFileAsync(file, args)
+function defaultExecRunner(
+  file: string,
+  args: string[],
+  options?: {
+    signal?: AbortSignal
+  },
+) {
+  return execFileAsync(file, args, { signal: options?.signal })
+}
+
+function withExecSignal(
+  execRunner: ExecRunnerWithOptions,
+  signal?: AbortSignal,
+): ExecRunner {
+  return (file, args) => execRunner(file, args, { signal })
 }
 
 function buildGhApiArgs(...args: string[]) {
   return ['api', '--header', 'Accept: application/vnd.github+json', ...args]
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }
 
 function getErrorText(error: unknown) {
@@ -109,7 +147,7 @@ function assertGhReady(status: GhAuthStatus) {
   if (!status.authenticated) {
     throw new Error(
       status.issues[0] ??
-        'GitHub CLI is not authenticated. Run ghdeck login first.',
+        `GitHub CLI is not authenticated. Run ${CLI_LOGIN_COMMAND} first.`,
     )
   }
 }
@@ -151,6 +189,49 @@ function mapRepositoryVariable(
   }
 }
 
+function buildFallbackRepositoryVariableMetadata(
+  variableName: string,
+  value: string,
+  existing: GhRepositoryVariable | null,
+): GhRepositoryVariable {
+  const timestamp = new Date().toISOString()
+
+  return {
+    createdAt: existing?.createdAt ?? timestamp,
+    name: variableName,
+    updatedAt: timestamp,
+    value,
+  }
+}
+
+async function readBackRepositoryVariableMetadata(
+  repository: string,
+  variableName: string,
+  execRunner: ExecRunner,
+): Promise<GhRepositoryVariable | null> {
+  for (
+    let attempt = 0;
+    attempt < VARIABLE_READ_BACK_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const variable = await getRepositoryVariableInternal(
+      repository,
+      variableName,
+      execRunner,
+    )
+
+    if (variable) {
+      return variable
+    }
+
+    if (attempt < VARIABLE_READ_BACK_MAX_ATTEMPTS - 1) {
+      await delay(VARIABLE_READ_BACK_RETRY_DELAY_MS)
+    }
+  }
+
+  return null
+}
+
 async function getRepositoryVariableInternal(
   repository: string,
   name: string,
@@ -179,72 +260,99 @@ async function getRepositoryVariableInternal(
 }
 
 export async function listManageableRepositories(options?: {
-  execRunner?: ExecRunner
+  execRunner?: ExecRunnerWithOptions
+  signal?: AbortSignal
   status?: GhAuthStatus
 }): Promise<GhRepositorySummary[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
-
-  assertGhReady(status)
-
-  const { stdout } = await execRunner(
-    'gh',
-    buildGhApiArgs(
-      '--method',
-      'GET',
-      '--paginate',
-      '--slurp',
-      '/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member',
-    ),
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
   )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
 
-  return repositoryPagesSchema
-    .parse(JSON.parse(stdout))
-    .flat()
-    .map<GhRepositorySummary>((repository) => ({
-      canManageVariables: Boolean(
-        repository.permissions?.admin ||
-        repository.permissions?.maintain ||
-        repository.permissions?.push,
+    assertGhReady(status)
+
+    const { stdout } = await execRunner(
+      'gh',
+      buildGhApiArgs(
+        '--method',
+        'GET',
+        '--paginate',
+        '--slurp',
+        '/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member',
       ),
-      isPrivate: repository.private,
-      name: repository.name,
-      nameWithOwner: repository.full_name,
-      ownerLogin: repository.owner.login,
-      updatedAt: repository.updated_at,
-      url: repository.html_url,
-      visibility:
-        repository.visibility ?? (repository.private ? 'private' : 'public'),
-    }))
-    .filter((repository) => repository.canManageVariables)
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    )
+
+    return repositoryPagesSchema
+      .parse(JSON.parse(stdout))
+      .flat()
+      .map<GhRepositorySummary>((repository) => ({
+        canManageEnvironments: Boolean(repository.permissions?.admin),
+        canManageVariables: Boolean(
+          repository.permissions?.admin ||
+          repository.permissions?.maintain ||
+          repository.permissions?.push,
+        ),
+        isPrivate: repository.private,
+        name: repository.name,
+        nameWithOwner: repository.full_name,
+        ownerLogin: repository.owner.login,
+        updatedAt: repository.updated_at,
+        url: repository.html_url,
+        visibility:
+          repository.visibility ?? (repository.private ? 'private' : 'public'),
+      }))
+      .filter((repository) => repository.canManageVariables)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function listRepositoryVariables(
   repository: string,
   options?: {
-    execRunner?: ExecRunner
+    execRunner?: ExecRunnerWithOptions
+    signal?: AbortSignal
     status?: GhAuthStatus
   },
 ): Promise<GhRepositoryVariable[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
-
-  assertGhReady(status)
-
-  const { stdout } = await execRunner(
-    'gh',
-    buildGhApiArgs(
-      '--method',
-      'GET',
-      `${buildRepositoryVariablesPath(repository)}?per_page=100`,
-    ),
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
   )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
 
-  return repositoryVariablesSchema
-    .parse(JSON.parse(stdout))
-    .variables.map(mapRepositoryVariable)
-    .sort((left, right) => left.name.localeCompare(right.name))
+    assertGhReady(status)
+
+    const { stdout } = await execRunner(
+      'gh',
+      buildGhApiArgs(
+        '--method',
+        'GET',
+        `${buildRepositoryVariablesPath(repository)}?per_page=100`,
+      ),
+    )
+
+    return repositoryVariablesSchema
+      .parse(JSON.parse(stdout))
+      .variables.map(mapRepositoryVariable)
+      .sort((left, right) => left.name.localeCompare(right.name))
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function upsertRepositoryVariable(
@@ -295,17 +403,12 @@ export async function upsertRepositoryVariable(
 
   await execRunner('gh', args)
 
-  const variable = await getRepositoryVariableInternal(
-    repository,
-    variableName,
-    execRunner,
-  )
-
-  if (!variable) {
-    throw new Error(
-      `GitHub CLI reported success, but ${variableName} could not be read back.`,
-    )
-  }
+  const variable =
+    (await readBackRepositoryVariableMetadata(
+      repository,
+      variableName,
+      execRunner,
+    )) ?? buildFallbackRepositoryVariableMetadata(variableName, value, existing)
 
   return {
     created: !existing,

@@ -65,7 +65,7 @@ export const getRepositorySecrets = createServerFn({
   method: 'POST',
 })
   .inputValidator(repositoryInputSchema)
-  .handler(async ({ data }) => listRepositorySecrets(data.repository))
+  .handler(({ data }) => listRepositorySecrets(data.repository))
 
 export const saveRepositorySecret = createServerFn({
   method: 'POST',
@@ -87,7 +87,7 @@ export const getRepositoryEnvironments = createServerFn({
   method: 'POST',
 })
   .inputValidator(repositoryInputSchema)
-  .handler(async ({ data }) => listRepositoryEnvironments(data.repository))
+  .handler(({ data }) => listRepositoryEnvironments(data.repository))
 
 export const addRepositoryEnvironment = createServerFn({
   method: 'POST',
@@ -109,7 +109,7 @@ export const getEnvironmentVariables = createServerFn({
   method: 'POST',
 })
   .inputValidator(repositoryEnvironmentInputSchema)
-  .handler(async ({ data }) =>
+  .handler(({ data }) =>
     listEnvironmentVariables(data.repository, data.environmentName),
   )
 
@@ -138,7 +138,7 @@ export const getEnvironmentSecrets = createServerFn({
   method: 'POST',
 })
   .inputValidator(repositoryEnvironmentInputSchema)
-  .handler(async ({ data }) =>
+  .handler(({ data }) =>
     listEnvironmentSecrets(data.repository, data.environmentName),
   )
 

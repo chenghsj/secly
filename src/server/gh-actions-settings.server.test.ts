@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { CLI_LOGIN_COMMAND } from '../lib/product'
 import {
   createRepositoryEnvironment,
   deleteEnvironmentSecret,
@@ -24,7 +25,7 @@ function createStatus(overrides?: Partial<GhAuthStatus>): GhAuthStatus {
       tokenSource: 'keyring',
     },
     authenticated: true,
-    cliLoginCommand: 'ghdeck login',
+    cliLoginCommand: CLI_LOGIN_COMMAND,
     ghInstalled: true,
     ghLoginCommand:
       'gh auth login --hostname github.com --web --git-protocol https --skip-ssh-key --scopes workflow',
@@ -61,6 +62,26 @@ describe('listRepositorySecrets', () => {
       'API_KEY',
       'WEBHOOK_SECRET',
     ])
+  })
+
+  it('forwards an abort signal to the gh exec runner', async () => {
+    const signal = new AbortController().signal
+    const execRunner = vi.fn().mockResolvedValue({
+      stderr: '',
+      stdout: JSON.stringify([]),
+    })
+
+    await listRepositorySecrets('cheng/foo', {
+      execRunner,
+      signal,
+      status: createStatus(),
+    })
+
+    expect(execRunner).toHaveBeenCalledWith(
+      'gh',
+      expect.any(Array),
+      expect.objectContaining({ signal }),
+    )
   })
 })
 
@@ -255,6 +276,30 @@ describe('createRepositoryEnvironment', () => {
       ]),
     )
   })
+
+  it('surfaces a clear access error when GitHub rejects environment creation', async () => {
+    const execRunner = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+
+    await expect(
+      createRepositoryEnvironment('cheng/foo', 'preview', {
+        execRunner,
+        status: createStatus(),
+      }),
+    ).rejects.toThrow(
+      'Creating and deleting environments requires repository owner or admin access',
+    )
+  })
 })
 
 describe('deleteRepositoryEnvironment', () => {
@@ -356,6 +401,57 @@ describe('upsertEnvironmentVariable', () => {
         'preview',
       ]),
     )
+  })
+
+  it('retries environment variable read-back before returning fallback metadata', async () => {
+    const execRunner = vi
+      .fn()
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({ stderr: '', stdout: '' })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([]),
+      })
+
+    const before = Date.now()
+
+    const result = await upsertEnvironmentVariable(
+      'cheng/foo',
+      'preview',
+      'API_URL',
+      'https://new.example.com',
+      {
+        execRunner,
+        status: createStatus(),
+      },
+    )
+
+    expect(result.created).toBe(true)
+    expect(result.variable).toMatchObject({
+      name: 'API_URL',
+      value: 'https://new.example.com',
+    })
+    expect(Date.parse(result.variable.updatedAt)).toBeGreaterThanOrEqual(before)
+    expect(execRunner).toHaveBeenCalledTimes(7)
   })
 })
 

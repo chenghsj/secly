@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { CLI_LOGIN_COMMAND } from '../lib/product'
 import {
   deleteRepositoryVariable,
   listManageableRepositories,
@@ -19,7 +20,7 @@ function createStatus(overrides?: Partial<GhAuthStatus>): GhAuthStatus {
       tokenSource: 'keyring',
     },
     authenticated: true,
-    cliLoginCommand: 'ghdeck login',
+    cliLoginCommand: CLI_LOGIN_COMMAND,
     ghInstalled: true,
     ghLoginCommand:
       'gh auth login --hostname github.com --web --git-protocol https --skip-ssh-key --scopes workflow',
@@ -68,6 +69,7 @@ describe('listManageableRepositories', () => {
 
     expect(repositories).toEqual([
       expect.objectContaining({
+        canManageEnvironments: false,
         canManageVariables: true,
         nameWithOwner: 'cheng/foo',
       }),
@@ -105,6 +107,29 @@ describe('listRepositoryVariables', () => {
       'API_URL',
       'FEATURE_FLAG',
     ])
+  })
+
+  it('forwards an abort signal to the gh exec runner', async () => {
+    const signal = new AbortController().signal
+    const execRunner = vi.fn().mockResolvedValue({
+      stderr: '',
+      stdout: JSON.stringify({
+        total_count: 0,
+        variables: [],
+      }),
+    })
+
+    await listRepositoryVariables('cheng/foo', {
+      execRunner,
+      signal,
+      status: createStatus(),
+    })
+
+    expect(execRunner).toHaveBeenCalledWith(
+      'gh',
+      expect.any(Array),
+      expect.objectContaining({ signal }),
+    )
   })
 })
 
@@ -193,6 +218,62 @@ describe('upsertRepositoryVariable', () => {
         '/repos/cheng/foo/actions/variables/API_URL',
       ]),
     )
+  })
+
+  it('retries repository variable read-back before returning fallback metadata', async () => {
+    const execRunner = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockResolvedValueOnce({ stderr: '', stdout: '' })
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not found'), {
+          stderr: 'HTTP 404: Not Found',
+        }),
+      )
+
+    const before = Date.now()
+
+    const result = await upsertRepositoryVariable(
+      'cheng/foo',
+      'API_URL',
+      'https://example.com',
+      {
+        execRunner,
+        status: createStatus(),
+      },
+    )
+
+    expect(result.created).toBe(true)
+    expect(result.variable).toMatchObject({
+      name: 'API_URL',
+      value: 'https://example.com',
+    })
+    expect(Date.parse(result.variable.updatedAt)).toBeGreaterThanOrEqual(before)
+    expect(execRunner).toHaveBeenCalledTimes(7)
   })
 })
 

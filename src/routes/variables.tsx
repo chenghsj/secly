@@ -1,248 +1,70 @@
-import {
-  Link,
-  createFileRoute,
-  redirect,
-  useRouterState,
-} from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef } from 'react'
-import { SearchIcon } from 'lucide-react'
-import { toast } from 'sonner'
-import { Badge } from '#/components/ui/badge'
-import { Button, buttonVariants } from '#/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '#/components/ui/card'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '#/components/ui/empty'
-import { Skeleton } from '#/components/ui/skeleton'
-import type { SearchableSelectItem } from '#/components/ui/searchable-select'
-import { Tabs, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { useAppPreferences } from '../components/app/app-settings-provider'
 import {
   defaultVariablesEntrySort,
-  getNextVariablesEntrySort,
-  mergeVariablesSearchUpdate,
   validateVariablesSearch,
 } from '#/lib/variables-route-search'
 import type {
-  SettingsScope,
   VariablesEntrySortDirection,
   VariablesEntrySortField,
   VariablesSearch,
 } from '#/lib/variables-route-search'
 import {
-  compareSettingsEntries,
-  formatMessage,
   getPendingVariablesMessages,
   getScopeConfig,
-  getTargetLabel,
   getVariablesAuthIdentity,
   getVariablesPageDataSnapshotKey,
   isEnvironmentScope,
-  isSecretScope,
-  scopeMessageKeys,
-  scopeTabDisplayOrder,
-  upsertEntryList,
-} from '#/features/variables/variables-selectors'
-import { createEnvironmentForRepository } from '#/features/variables/variables-actions'
+} from '#/features/variables/models/variables-helpers'
 import {
   VariablesBulkEntryPanel,
-  LoadingTable,
-  VariablesDeleteConfirmDialog,
-  VariablesEntriesPanel,
-  VariablesEnvironmentCreateDialog,
-  VariablesEntryEditorDialog,
+  VariablesRoutePendingScreen,
+  VariablesRouteScreenContainer,
   VariablesSingleEntryForm,
-  VariablesGlobalSearchDialog,
-  VariablesTargetPanel,
-} from '#/features/variables/variables-components'
+  createVariablesDeleteDialogProps,
+  createVariablesEntriesPanelProps,
+  createVariablesEntryEditorDialogProps,
+  createVariablesEnvironmentCreateDialogProps,
+  createVariablesFocusManagementProps,
+  createVariablesGlobalSearchDialogProps,
+  createVariablesTargetPanelProps,
+} from '#/features/variables/ui'
+import { useVariablesDeleteController } from '#/features/variables/controllers/use-variables-delete-controller'
+import { useVariablesEntryEditorController } from '#/features/variables/controllers/use-variables-entry-editor-controller'
+import { useVariablesOrchestration } from '#/features/variables/controllers/use-variables-orchestration'
+import { useVariablesRouteNavigation } from '#/features/variables/controllers/use-variables-route-navigation'
+import { useVariablesRouteActions } from '../features/variables/controllers/use-variables-route-actions'
 import {
-  openEntryEditorForScope,
-  startCreateEntryEditor,
-} from '#/features/variables/variables-entry-editor'
-import { openGlobalSearchResultInEditor } from '#/features/variables/variables-global-search'
-import { useVariablesDeleteController } from '#/features/variables/use-variables-delete-controller'
-import { useVariablesEntryEditorController } from '#/features/variables/use-variables-entry-editor-controller'
-import { useVariablesOrchestration } from '#/features/variables/use-variables-orchestration'
-import { useVariablesPageViewModels } from '#/features/variables/use-variables-page-view-models'
+  createSelectionState,
+  filterGlobalResultsForRepository,
+  filterSettingsEntries,
+  getCurrentEntriesForScope,
+  hasLoadedEntriesForScope,
+  resolveSelectedEnvironment,
+  resolveSelectedRepository,
+  sortFilteredEntries,
+} from '#/features/variables/models/variables-page-derivations'
+import { useVariablesRoutePageState } from '#/features/variables/models/use-variables-route-page-state'
+import { loadVariablesRouteData } from '#/features/variables/state/variables-route-loader'
+import {
+  readVariablesPageDataSnapshot,
+  writeVariablesPageDataSnapshot,
+} from '#/features/variables/state/variables-session-cache'
 import {
   VariablesStoreProvider,
   createVariablesStoreInitialState,
-  useVariablesStore,
-} from '#/features/variables/variables-store'
-import type {
-  GlobalSearchResult,
-  SettingsEntry,
-  VariablesLoaderData,
-  VariablesPageDataSnapshot,
-} from '#/features/variables/variables-types'
-import {
-  getEnvironmentSecrets,
-  getEnvironmentVariables,
-  getRepositoryEnvironments,
-  getRepositorySecrets,
-} from '../server/gh-actions-settings.functions'
-import { refreshLocalGhAuthStatus } from '../server/gh-auth.functions'
-import type { GhAuthStatus } from '../server/gh-auth.server'
-import type { GhEnvironmentSummary } from '../server/gh-actions-settings.server'
-import {
-  getManageableRepositories,
-  getRepositoryVariables,
-} from '../server/gh-repository-variables.functions'
-import type { GhRepositorySummary } from '../server/gh-repository-variables.server'
-
-const variablesPageDataSnapshots = new Map<string, VariablesPageDataSnapshot>()
-
-function createEmptyVariablesLoaderData(
-  status: GhAuthStatus,
-): VariablesLoaderData {
-  return {
-    environmentSecrets: [],
-    environmentSecretsKey: '',
-    environmentVariables: [],
-    environmentVariablesKey: '',
-    environments: [],
-    environmentsRepository: '',
-    initialRepository: '',
-    repositories: [],
-    repositorySecrets: [],
-    repositorySecretsRepository: '',
-    repositoryVariables: [],
-    repositoryVariablesRepository: '',
-    status,
-  }
-}
-
-function resolveInitialRepository(
-  repositories: GhRepositorySummary[],
-  requestedRepository?: string,
-) {
-  if (
-    requestedRepository &&
-    repositories.some(
-      (repository) => repository.nameWithOwner === requestedRepository,
-    )
-  ) {
-    return requestedRepository
-  }
-
-  return repositories[0]?.nameWithOwner ?? ''
-}
-
-function resolveInitialEnvironment(
-  environments: GhEnvironmentSummary[],
-  requestedEnvironment?: string,
-) {
-  if (
-    requestedEnvironment &&
-    environments.some(
-      (environment) => environment.name === requestedEnvironment,
-    )
-  ) {
-    return requestedEnvironment
-  }
-
-  return environments[0]?.name ?? ''
-}
-
-async function loadVariablesRouteData(
-  search: VariablesSearch,
-): Promise<VariablesLoaderData> {
-  const status = await refreshLocalGhAuthStatus()
-
-  if (!status.authenticated) {
-    throw redirect({ to: '/connect' })
-  }
-
-  const repositories = await getManageableRepositories()
-  const initialRepository = resolveInitialRepository(
-    repositories,
-    search.repository,
-  )
-  const data: VariablesLoaderData = {
-    ...createEmptyVariablesLoaderData(status),
-    initialRepository,
-    repositories,
-  }
-
-  if (!initialRepository) {
-    return data
-  }
-
-  const activeScope = search.scope ?? 'repository-variables'
-
-  if (activeScope === 'repository-variables') {
-    data.repositoryVariables = await getRepositoryVariables({
-      data: {
-        repository: initialRepository,
-      },
-    })
-    data.repositoryVariablesRepository = initialRepository
-    return data
-  }
-
-  if (activeScope === 'repository-secrets') {
-    data.repositorySecrets = await getRepositorySecrets({
-      data: {
-        repository: initialRepository,
-      },
-    })
-    data.repositorySecretsRepository = initialRepository
-    return data
-  }
-
-  data.environments = await getRepositoryEnvironments({
-    data: {
-      repository: initialRepository,
-    },
-  })
-  data.environmentsRepository = initialRepository
-
-  const initialEnvironment = resolveInitialEnvironment(
-    data.environments,
-    search.environment,
-  )
-
-  if (!initialEnvironment) {
-    return data
-  }
-
-  if (activeScope === 'environment-variables') {
-    data.environmentVariables = await getEnvironmentVariables({
-      data: {
-        environmentName: initialEnvironment,
-        repository: initialRepository,
-      },
-    })
-    data.environmentVariablesKey = `${initialRepository}:${initialEnvironment}`
-    return data
-  }
-
-  data.environmentSecrets = await getEnvironmentSecrets({
-    data: {
-      environmentName: initialEnvironment,
-      repository: initialRepository,
-    },
-  })
-  data.environmentSecretsKey = `${initialRepository}:${initialEnvironment}`
-
-  return data
-}
-
+} from '#/features/variables/state/variables-store'
+import { useVariablesRouteStore } from '#/features/variables/state/use-variables-route-store.ts'
+import type { VariablesLoaderData } from '#/features/variables/domain/variables-types'
 export const Route = createFileRoute('/variables')({
   validateSearch: validateVariablesSearch,
   staleTime: Infinity,
   gcTime: Infinity,
+  // Keep the route loader as bootstrap/auth refresh only. In-page
+  // orchestration owns search-driven loading so scope/repository switches use
+  // local loading states instead of remounting into the route pending UI.
+  shouldReload: false,
   loader: async ({ location }) => {
     const search = validateVariablesSearch(
       location.search as Record<string, unknown>,
@@ -301,11 +123,13 @@ function VariablesPage({
   const initialState = useMemo(
     () =>
       createVariablesStoreInitialState({
-        initialDataSnapshot: allowSnapshotRestore
-          ? (variablesPageDataSnapshots.get(
-              getVariablesPageDataSnapshotKey(authIdentity, search),
-            ) ?? null)
-          : null,
+        initialDataSnapshot: readVariablesPageDataSnapshot({
+          allowSnapshotRestore,
+          dataSnapshotKey: getVariablesPageDataSnapshotKey(
+            authIdentity,
+            search,
+          ),
+        }),
         loaderData,
       }),
     [allowSnapshotRestore, authIdentity, loaderData, search],
@@ -314,6 +138,7 @@ function VariablesPage({
   return (
     <VariablesStoreProvider initialState={initialState}>
       <VariablesPageContent
+        allowSnapshotRestore={allowSnapshotRestore}
         authIdentity={authIdentity}
         dataSnapshotKey={getVariablesPageDataSnapshotKey(authIdentity, search)}
         loaderData={loaderData}
@@ -324,11 +149,13 @@ function VariablesPage({
 }
 
 function VariablesPageContent({
+  allowSnapshotRestore,
   authIdentity,
   dataSnapshotKey,
   loaderData,
   search,
 }: {
+  allowSnapshotRestore: boolean
   authIdentity: string
   dataSnapshotKey: string
   loaderData: VariablesLoaderData
@@ -338,131 +165,150 @@ function VariablesPageContent({
   const { locale, messages } = useAppPreferences()
   const { status } = loaderData
   const {
-    bulkInput,
-    bulkInputError,
-    clearEntryEditorDrafts,
-    clearEnvironmentEditing,
-    clearGlobalSearchData,
-    clearTableEditing,
-    closeEntryEditorImmediately,
-    closeEnvironmentCreateImmediately,
-    deleteConfirmationValue,
-    editingEntryName,
-    environmentName,
-    environmentNameError,
+    editorActions,
+    editorState,
+    resetRepositoryScopedData,
+    resourceActions,
+    resourceState,
+    uiActions,
+    uiState,
+  } = useVariablesRouteStore()
+  const {
     environmentSecrets,
     environmentSecretsKey,
-    environmentSelectionError,
     environmentVariables,
     environmentVariablesKey,
     environments,
     environmentsRepository,
+    repositories,
+    repositorySecrets,
+    repositorySecretsRepository,
+    repositoryVariables,
+    repositoryVariablesRepository,
+  } = resourceState
+  const {
+    bulkInput,
+    bulkInputError,
+    editingEntryName,
     entryEditorContext,
+    environmentName,
+    environmentNameError,
+    isBulkSaving,
+    isCreatingEnvironment,
+    isEntryEditorOpen,
+    isEnvironmentCreateOpen,
+    isSaving,
+    name,
+    nameError,
+    shouldRestoreGlobalSearchAfterEditorClose,
+    value,
+    valueError,
+  } = editorState
+  const {
+    deleteConfirmationValue,
+    environmentSelectionError,
     globalSearchError,
     globalSearchQuery,
     globalSearchRepository,
     globalSearchResults,
-    isBulkSaving,
-    isCreatingEnvironment,
     isDeletingEntries,
     isDeletingEnvironment,
-    isEntryEditorOpen,
-    isEnvironmentCreateOpen,
     isEnvironmentEditing,
     isGlobalSearchDialogOpen,
     isGlobalSearchLoading,
     isRefreshingEntries,
     isRefreshingEnvironments,
     isRefreshingRepositories,
-    isSaving,
     isTableEditing,
-    name,
-    nameError,
     pendingDelete,
-    repositories,
     repositoryError,
-    repositorySecrets,
-    repositorySecretsRepository,
-    repositoryVariables,
-    repositoryVariablesRepository,
-    resetRepositoryScopedData,
     selectedEntryNames,
+  } = uiState
+  const {
+    clearEntryEditorDrafts,
+    closeEntryEditorImmediately,
+    closeEnvironmentCreateImmediately,
     setBulkInput,
     setBulkInputError,
-    setDeleteConfirmationValue,
     setEditingEntryName,
     setEnvironmentName,
     setEnvironmentNameError,
-    setEnvironmentSecrets,
-    setEnvironmentSecretsKey,
-    setEnvironmentSelectionError,
-    setEnvironmentVariables,
-    setEnvironmentVariablesKey,
-    setEnvironments,
-    setEnvironmentsRepository,
     setEntryEditorContext,
+    setIsBulkSaving,
+    setIsCreatingEnvironment,
+    setIsEntryEditorOpen,
+    setIsEnvironmentCreateOpen,
+    setIsSaving,
+    setName,
+    setNameError,
+    setShouldRestoreGlobalSearchAfterEditorClose,
+    setValue,
+    setValueError,
+  } = editorActions
+  const {
+    clearEnvironmentEditing,
+    clearGlobalSearchData,
+    clearTableEditing,
+    setDeleteConfirmationValue,
+    setEnvironmentSelectionError,
     setGlobalSearchError,
     setGlobalSearchQuery,
     setGlobalSearchRepository,
     setGlobalSearchResults,
-    setIsBulkSaving,
-    setIsCreatingEnvironment,
     setIsDeletingEntries,
     setIsDeletingEnvironment,
-    setIsEntryEditorOpen,
-    setIsEnvironmentCreateOpen,
     setIsEnvironmentEditing,
     setIsGlobalSearchDialogOpen,
     setIsGlobalSearchLoading,
     setIsRefreshingEntries,
     setIsRefreshingEnvironments,
     setIsRefreshingRepositories,
-    setIsSaving,
     setIsTableEditing,
-    setName,
-    setNameError,
     setPendingDelete,
-    setRepositories,
     setRepositoryError,
+    setSelectedEntryNames,
+    toggleEntrySelection,
+  } = uiActions
+  const {
+    setEnvironmentSecrets,
+    setEnvironmentSecretsKey,
+    setEnvironmentVariables,
+    setEnvironmentVariablesKey,
+    setEnvironments,
+    setEnvironmentsRepository,
+    setRepositories,
     setRepositorySecrets,
     setRepositorySecretsRepository,
     setRepositoryVariables,
     setRepositoryVariablesRepository,
-    setSelectedEntryNames,
-    setShouldRestoreGlobalSearchAfterEditorClose,
-    setValue,
-    setValueError,
-    shouldRestoreGlobalSearchAfterEditorClose,
-    toggleEntrySelection,
-    value,
-    valueError,
-  } = useVariablesStore((state) => state)
+  } = resourceActions
   const variablesMessages = messages.variables
-  const selectedRepository =
-    search.repository &&
-    repositories.some(
-      (repository) => repository.nameWithOwner === search.repository,
-    )
-      ? search.repository
-      : (repositories[0]?.nameWithOwner ?? loaderData.initialRepository)
   const activeScope = search.scope ?? 'repository-variables'
-  const selectedEnvironment =
-    search.environment &&
-    environments.some((environment) => environment.name === search.environment)
-      ? search.environment
-      : environmentsRepository === selectedRepository
-        ? activeScope === 'environment-variables'
-          ? (environments.find((environment) => environment.variableCount > 0)
-              ?.name ?? '')
-          : (environments[0]?.name ?? '')
-        : ''
-  const repositoryOptions = useMemo(
-    () => repositories.map((repository) => repository.nameWithOwner),
-    [repositories],
+  const selectedRepository = useMemo(
+    () =>
+      resolveSelectedRepository({
+        initialRepository: loaderData.initialRepository,
+        repositories,
+        searchRepository: search.repository,
+      }),
+    [loaderData.initialRepository, repositories, search.repository],
   )
-  const environmentOptions = useMemo<SearchableSelectItem[]>(
-    () => environments.map((environment) => environment.name),
-    [environments],
+  const selectedEnvironment = useMemo(
+    () =>
+      resolveSelectedEnvironment({
+        activeScope,
+        environments,
+        environmentsRepository,
+        searchEnvironment: search.environment,
+        selectedRepository,
+      }),
+    [
+      activeScope,
+      environments,
+      environmentsRepository,
+      search.environment,
+      selectedRepository,
+    ],
   )
   const searchQuery = search.query ?? ''
   const trimmedGlobalSearchQuery = globalSearchQuery.trim()
@@ -478,57 +324,36 @@ function VariablesPageContent({
     variablesMessages,
     entryEditorScope,
   )
-  const scopeEntryPlural = scopeConfig.entryPluralLabel
-  const currentEntries = useMemo<SettingsEntry[]>(() => {
-    switch (activeScope) {
-      case 'repository-variables':
-        return repositoryVariables
-      case 'repository-secrets':
-        return repositorySecrets
-      case 'environment-variables':
-        return environmentVariables
-      case 'environment-secrets':
-        return environmentSecrets
-      default:
-        return []
-    }
-  }, [
-    activeScope,
-    environmentSecrets,
-    environmentVariables,
-    repositorySecrets,
-    repositoryVariables,
-  ])
+  const currentEntries = useMemo(
+    () =>
+      getCurrentEntriesForScope({
+        activeScope,
+        environmentSecrets,
+        environmentVariables,
+        repositorySecrets,
+        repositoryVariables,
+      }),
+    [
+      activeScope,
+      environmentSecrets,
+      environmentVariables,
+      repositorySecrets,
+      repositoryVariables,
+    ],
+  )
   const filteredEntries = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-
-    if (!query) {
-      return currentEntries
-    }
-
-    return currentEntries.filter((entry) => {
-      const searchableValue = entry.value ?? ''
-      const searchableVisibility = entry.visibility ?? ''
-
-      return (
-        entry.name.toLowerCase().includes(query) ||
-        searchableValue.toLowerCase().includes(query) ||
-        searchableVisibility.toLowerCase().includes(query)
-      )
+    return filterSettingsEntries({
+      currentEntries,
+      query: searchQuery,
     })
   }, [currentEntries, searchQuery])
   const filteredGlobalSearchResults = useMemo(() => {
-    const query = trimmedGlobalSearchQuery.toLowerCase()
-
-    if (!query || globalSearchRepository !== selectedRepository) {
-      return []
-    }
-
-    return globalSearchResults.filter(
-      (result) =>
-        result.repository === selectedRepository &&
-        result.searchText.includes(query),
-    )
+    return filterGlobalResultsForRepository({
+      globalSearchRepository,
+      query: trimmedGlobalSearchQuery,
+      results: globalSearchResults,
+      selectedRepository,
+    })
   }, [
     globalSearchRepository,
     globalSearchResults,
@@ -546,14 +371,13 @@ function VariablesPageContent({
   )
   const sortedFilteredEntries = useMemo(
     () =>
-      [...filteredEntries].sort((left, right) =>
-        compareSettingsEntries(left, right, {
-          collator: entrySortCollator,
-          direction: entrySortDirection,
-          field: entrySortField,
-          isSecretScopeActive: isSecretScope(activeScope),
-        }),
-      ),
+      sortFilteredEntries({
+        activeScope,
+        collator: entrySortCollator,
+        direction: entrySortDirection,
+        entries: filteredEntries,
+        field: entrySortField,
+      }),
     [
       activeScope,
       entrySortCollator,
@@ -562,44 +386,48 @@ function VariablesPageContent({
       filteredEntries,
     ],
   )
-  const selectedEntryNameSet = useMemo(
-    () => new Set(selectedEntryNames),
-    [selectedEntryNames],
+  const {
+    allFilteredEntriesSelected,
+    hasPartiallySelectedEntries,
+    hasSelectedEntries,
+    selectedEntryNameSet,
+  } = useMemo(
+    () =>
+      createSelectionState({
+        filteredEntries,
+        selectedEntryNames,
+      }),
+    [filteredEntries, selectedEntryNames],
   )
-  const hasSelectedEntries = selectedEntryNames.length > 0
-  const allFilteredEntriesSelected =
-    filteredEntries.length > 0 &&
-    filteredEntries.every((entry) => selectedEntryNameSet.has(entry.name))
-  const hasPartiallySelectedEntries =
-    !allFilteredEntriesSelected &&
-    filteredEntries.some((entry) => selectedEntryNameSet.has(entry.name))
-
-  async function updateVariablesSearch(
-    nextValues: Partial<VariablesSearch>,
-    { replace = false }: { replace?: boolean } = {},
-  ) {
-    await navigate({
-      replace,
-      resetScroll: false,
-      search: (previous) => mergeVariablesSearchUpdate(previous, nextValues),
-    })
-  }
 
   const {
-    handleEnvironmentChange,
-    handleRepositoryChange,
-    handleScopeChange,
-    loadEnvironmentSecretsForSelection,
-    loadEnvironmentVariablesForSelection,
-    loadGlobalSearchForRepository,
-    refreshCurrentEntries,
-    refreshPageData,
-    requestCloseEntryEditor,
-    requestCloseEnvironmentCreate,
-    resetGlobalSearchData,
-  } = useVariablesOrchestration({
+    clearEntrySearch,
+    setEntryEditorTab,
+    setEntrySearchQuery,
+    setEntrySort,
+    updateVariablesSearch,
+  } = useVariablesRouteNavigation({
+    entrySortDirection,
+    entrySortField,
+    navigate,
+  })
+
+  const orchestrationContext = {
     activeScope,
+    allowSnapshotRestore,
     authIdentity,
+    searchEnvironment: search.environment,
+    selectedEnvironment,
+    selectedRepository,
+    statusAuthenticated: status.authenticated,
+    trimmedGlobalSearchQuery,
+    variablesMessages,
+  }
+  const orchestrationNavigation = {
+    navigate,
+    updateVariablesSearch,
+  }
+  const orchestrationStore = {
     clearEnvironmentEditing,
     clearGlobalSearchData,
     clearTableEditing,
@@ -614,15 +442,11 @@ function VariablesPageContent({
     globalSearchRepository,
     isEntryEditorOpen,
     isEnvironmentCreateOpen,
-    navigate,
     repositorySecrets,
     repositorySecretsRepository,
     repositoryVariables,
     repositoryVariablesRepository,
     resetRepositoryScopedData,
-    searchEnvironment: search.environment,
-    selectedEnvironment,
-    selectedRepository,
     setEnvironmentSecrets,
     setEnvironmentSecretsKey,
     setEnvironmentSelectionError,
@@ -645,53 +469,53 @@ function VariablesPageContent({
     setRepositoryVariables,
     setRepositoryVariablesRepository,
     shouldRestoreGlobalSearchAfterEditorClose,
-    statusAuthenticated: status.authenticated,
-    trimmedGlobalSearchQuery,
-    updateVariablesSearch,
-    variablesMessages,
-  })
-
-  function handleEntrySortChange(field: VariablesEntrySortField) {
-    void updateVariablesSearch(
-      {
-        sort: getNextVariablesEntrySort(entryTableSort, field),
-      },
-      {
-        replace: true,
-      },
-    )
   }
 
-  const hasLoadedCurrentEntries =
-    activeScope === 'repository-variables'
-      ? repositoryVariablesRepository === selectedRepository
-      : activeScope === 'repository-secrets'
-        ? repositorySecretsRepository === selectedRepository
-        : activeScope === 'environment-variables'
-          ? environmentVariablesKey ===
-            `${selectedRepository}:${selectedEnvironment}`
-          : environmentSecretsKey ===
-            `${selectedRepository}:${selectedEnvironment}`
-  const currentTargetLabel = selectedRepository
-    ? isEnvironmentScope(activeScope) && selectedEnvironment
-      ? `${selectedRepository} / ${selectedEnvironment}`
-      : selectedRepository
-    : null
+  const {
+    handleEnvironmentChange,
+    handleRepositoryChange,
+    handleScopePrefetch,
+    handleScopeChange,
+    loadEnvironmentSecretsForSelection,
+    loadEnvironmentVariablesForSelection,
+    loadGlobalSearchForRepository,
+    refreshCurrentEntries,
+    refreshPageData,
+    requestCloseEntryEditor,
+    requestCloseEnvironmentCreate,
+    resetGlobalSearchData,
+  } = useVariablesOrchestration({
+    context: orchestrationContext,
+    navigation: orchestrationNavigation,
+    store: orchestrationStore,
+  })
 
+  const hasLoadedCurrentEntries = hasLoadedEntriesForScope({
+    activeScope,
+    environmentSecretsKey,
+    environmentVariablesKey,
+    repositorySecretsRepository,
+    repositoryVariablesRepository,
+    selectedEnvironment,
+    selectedRepository,
+  })
   useEffect(() => {
-    variablesPageDataSnapshots.set(dataSnapshotKey, {
-      environmentSecrets,
-      environmentSecretsKey,
-      environmentVariables,
-      environmentVariablesKey,
-      environments,
-      environmentsRepository,
+    writeVariablesPageDataSnapshot({
+      dataSnapshotKey,
       initialRepository: selectedRepository || loaderData.initialRepository,
-      repositories,
-      repositorySecrets,
-      repositorySecretsRepository,
-      repositoryVariables,
-      repositoryVariablesRepository,
+      loaderData: {
+        environmentSecrets,
+        environmentSecretsKey,
+        environmentVariables,
+        environmentVariablesKey,
+        environments,
+        environmentsRepository,
+        repositories,
+        repositorySecrets,
+        repositorySecretsRepository,
+        repositoryVariables,
+        repositoryVariablesRepository,
+      },
     })
   }, [
     dataSnapshotKey,
@@ -710,272 +534,107 @@ function VariablesPageContent({
     selectedRepository,
   ])
 
-  const listEmptyTitle = formatMessage(variablesMessages.noEntriesTitle, {
-    entries: scopeEntryPlural,
-  })
-  const listEmptyDescription = selectedRepository
-    ? formatMessage(variablesMessages.noEntriesDescription, {
-        entry: scopeConfig.entryLabel,
-        target: getTargetLabel(
-          selectedRepository,
-          selectedEnvironment,
-          activeScope,
-        ),
-      })
-    : variablesMessages.selectRepositoryDescription
-  const noMatchesTitle = formatMessage(variablesMessages.noMatchesTitle, {
-    entries: scopeEntryPlural,
-  })
-
-  function startCreateEntry() {
-    setRepositoryError(null)
-    setEnvironmentSelectionError(null)
-
-    if (!selectedRepository) {
-      setRepositoryError(
-        formatMessage(
-          variablesMessages.validation.selectRepositoryBeforeSaving,
-          {
-            entry: scopeConfig.entryLabel,
-          },
-        ),
-      )
-      return
-    }
-
-    if (isEnvironmentScope(activeScope) && !selectedEnvironment) {
-      setEnvironmentSelectionError(
-        variablesMessages.validation.selectEnvironmentBeforeSaving,
-      )
-      return
-    }
-
-    startCreateEntryEditor(
-      {
-        clearEntryEditorDrafts,
-        setEntryEditorContext,
-        setIsEntryEditorOpen,
-        setIsGlobalSearchDialogOpen,
-        setShouldRestoreGlobalSearchAfterEditorClose,
-      },
-      {
-        activeScope,
-        selectedEnvironment,
-        selectedRepository,
-      },
-    )
+  const routeActionOrchestration = {
+    loadEnvironmentSecretsForSelection,
+    loadEnvironmentVariablesForSelection,
+    resetGlobalSearchData,
+    updateVariablesSearch,
+  }
+  const routeActionSelection = {
+    activeScope,
+    allFilteredEntriesSelected,
+    editingEntryName,
+    environmentName,
+    filteredEntries,
+    isGlobalSearchDialogOpen,
+    selectedEnvironment,
+    selectedRepository,
+  }
+  const routeActionStore = {
+    clearEntryEditorDrafts,
+    clearEnvironmentEditing,
+    closeEnvironmentCreateImmediately,
+    setEditingEntryName,
+    setEntryEditorContext,
+    setEnvironmentName,
+    setEnvironmentNameError,
+    setEnvironmentSelectionError,
+    setEnvironments,
+    setEnvironmentsRepository,
+    setEnvironmentSecrets,
+    setEnvironmentSecretsKey,
+    setEnvironmentVariables,
+    setEnvironmentVariablesKey,
+    setGlobalSearchResults,
+    setIsCreatingEnvironment,
+    setIsEntryEditorOpen,
+    setIsEnvironmentCreateOpen,
+    setIsGlobalSearchDialogOpen,
+    setName,
+    setRepositoryError,
+    setRepositorySecrets,
+    setRepositorySecretsRepository,
+    setRepositoryVariables,
+    setRepositoryVariablesRepository,
+    setSelectedEntryNames,
+    setShouldRestoreGlobalSearchAfterEditorClose,
+    setValue,
   }
 
-  function openEnvironmentCreate() {
-    setRepositoryError(null)
-    setEnvironmentNameError(null)
-
-    if (!selectedRepository) {
-      setRepositoryError(
-        variablesMessages.validation.selectRepositoryBeforeCreateEnvironment,
-      )
-      return
-    }
-
-    setEnvironmentName('')
-    setIsEnvironmentCreateOpen(true)
-  }
-
-  function applyEditEntryForScope(entry: SettingsEntry, scope: SettingsScope) {
-    setRepositoryError(null)
-    setEnvironmentSelectionError(null)
-
-    openEntryEditorForScope(
-      {
-        clearEntryEditorDrafts,
-        setEditingEntryName,
-        setEntryEditorContext,
-        setIsEntryEditorOpen,
-        setIsGlobalSearchDialogOpen,
-        setName,
-        setShouldRestoreGlobalSearchAfterEditorClose,
-        setValue,
-      },
-      {
-        activeScope,
-        entry,
-        isGlobalSearchDialogOpen,
-        scope,
-        selectedEnvironment,
-        selectedRepository,
-      },
-    )
-  }
-
-  function startEditingEntry(entry: SettingsEntry) {
-    if (editingEntryName === entry.name) {
-      return
-    }
-
-    void applyEditEntryForScope(entry, activeScope)
-  }
-
-  async function openGlobalSearchResult(result: GlobalSearchResult) {
-    openGlobalSearchResultInEditor(
-      {
-        clearEntryEditorDrafts,
-        setEditingEntryName,
-        setEntryEditorContext,
-        setIsEntryEditorOpen,
-        setIsGlobalSearchDialogOpen,
-        setName,
-        setShouldRestoreGlobalSearchAfterEditorClose,
-        setValue,
-      },
-      result,
-    )
-  }
-
-  function toggleAllFilteredEntries() {
-    setSelectedEntryNames((current) => {
-      const currentSelection = new Set(current)
-
-      if (allFilteredEntriesSelected) {
-        filteredEntries.forEach((entry) => {
-          currentSelection.delete(entry.name)
-        })
-      } else {
-        filteredEntries.forEach((entry) => {
-          currentSelection.add(entry.name)
-        })
-      }
-
-      return Array.from(currentSelection)
-    })
-  }
-
-  async function handleCreateEnvironment() {
-    setRepositoryError(null)
-    setEnvironmentNameError(null)
-
-    if (!selectedRepository) {
-      setRepositoryError(
-        variablesMessages.validation.selectRepositoryBeforeCreateEnvironment,
-      )
-      return
-    }
-
-    if (!environmentName.trim()) {
-      setEnvironmentNameError(
-        variablesMessages.validation.environmentNameRequired,
-      )
-      return
-    }
-
-    setIsCreatingEnvironment(true)
-
-    try {
-      const environment = await createEnvironmentForRepository({
-        environmentName: environmentName.trim(),
-        repository: selectedRepository,
-      })
-
-      const nextEnvironments = upsertEntryList(environments, environment)
-      setEnvironments(nextEnvironments)
-      setEnvironmentsRepository(selectedRepository)
-      resetGlobalSearchData()
-      clearEnvironmentEditing()
-      closeEnvironmentCreateImmediately()
-      await updateVariablesSearch(
-        {
-          environment: environment.name,
-        },
-        {
-          replace: true,
-        },
-      )
-
-      if (activeScope === 'environment-variables') {
-        await loadEnvironmentVariablesForSelection(
-          selectedRepository,
-          environment.name,
-        )
-      } else {
-        await loadEnvironmentSecretsForSelection(
-          selectedRepository,
-          environment.name,
-        )
-      }
-
-      toast.success(variablesMessages.feedback.environmentCreated, {
-        description: formatMessage(
-          variablesMessages.feedback.environmentCreatedDescription,
-          {
-            name: environment.name,
-            repository: selectedRepository,
-          },
-        ),
-      })
-    } catch (error) {
-      toast.error(variablesMessages.errors.createEnvironmentFailed, {
-        description:
-          error instanceof Error
-            ? error.message
-            : variablesMessages.errors.createEnvironmentFailed,
-      })
-    } finally {
-      setIsCreatingEnvironment(false)
-    }
-  }
-
-  const isWaitingForCurrentEntries =
-    Boolean(selectedRepository) &&
-    (!isEnvironmentScope(activeScope)
-      ? !hasLoadedCurrentEntries
-      : environmentsRepository !== selectedRepository ||
-        (!selectedEnvironment && isRefreshingEnvironments) ||
-        (Boolean(selectedEnvironment) && !hasLoadedCurrentEntries))
-  const isPageRefreshing =
-    isRefreshingRepositories || isRefreshingEnvironments || isRefreshingEntries
-  const isListLoading = isPageRefreshing || isWaitingForCurrentEntries
-  const isListActionDisabled = isPageRefreshing
-  const isEnvironmentActionDisabled = isRefreshingEnvironments
-  const isTargetRefreshing =
-    isRefreshingRepositories || isRefreshingEnvironments
-  const valueColumnLabel = scopeConfig.valueColumnLabel
-  const canMutateCurrentScope =
-    Boolean(selectedRepository) &&
-    (!isEnvironmentScope(activeScope) || Boolean(selectedEnvironment))
-  const environmentNameInputId = 'environment-name-input'
-  const environmentNameErrorId = 'environment-name-error'
-  const deleteConfirmationInputId = 'delete-confirmation-input'
-  const globalSearchInputId = 'global-entry-search-input'
-  const entryNameInputId = 'entry-name-input'
-  const entryNameErrorId = 'entry-name-error'
-  const entryValueInputId = 'entry-value-input'
-  const entryValueErrorId = 'entry-value-error'
-  const bulkInputId = 'bulk-entry-input'
-  const bulkInputErrorId = 'bulk-entry-error'
-  const bulkInputErrorListId = 'bulk-entry-error-list'
-  const searchInputId = 'entry-search-input'
   const {
-    bulkApplyLabel,
-    canMutateEntryEditorScope,
-    duplicateSummary,
-    entryEditorDescription,
-    entryEditorNeedsEnvironmentSelection,
-    entryEditorTitle,
-    entryNameLabel,
-    entryValueLabel,
-    handleApplyBulkEntries,
-    handleBulkInputChange,
-    handleNameChange,
-    handleSaveEntry,
-    handleValueChange,
-    isBulkEditorActive,
-    isSingleEntryEditor,
-    parsedBulk,
-    parsedBulkErrors,
-    previewSummary,
-    saveActionLabel,
-  } = useVariablesEntryEditorController({
+    handleCreateEnvironment,
+    openEnvironmentCreate,
+    saveGlobalSearchResult,
+    startCreateEntry,
+    startEditingEntry,
+    toggleAllFilteredEntries,
+  } = useVariablesRouteActions({
+    orchestration: routeActionOrchestration,
+    selection: routeActionSelection,
+    store: routeActionStore,
+    variablesMessages,
+  })
+  const {
+    canMutateCurrentScope,
+    ids: {
+      bulkInputErrorId,
+      bulkInputErrorListId,
+      bulkInputId,
+      deleteConfirmationInputId,
+      entryNameErrorId,
+      entryNameInputId,
+      entryValueErrorId,
+      entryValueInputId,
+      environmentNameErrorId,
+      environmentNameInputId,
+      globalSearchInputId,
+      searchInputId,
+    },
+    listEmptyDescription,
+    listEmptyTitle,
+    noMatchesTitle,
+    status: {
+      isEnvironmentActionDisabled,
+      isListActionDisabled,
+      isListLoading,
+      isTargetRefreshing,
+    },
+  } = useVariablesRoutePageState({
+    activeScope,
+    environmentsRepository,
+    hasLoadedCurrentEntries,
+    isRefreshingEntries,
+    isRefreshingEnvironments,
+    isRefreshingRepositories,
+    selectedEnvironment,
+    selectedRepository,
+    variablesMessages,
+  })
+
+  const valueColumnLabel = scopeConfig.valueColumnLabel
+
+  const entryEditorControllerContext = {
     activeTab,
-    bulkInput,
     currentEntries,
     editingEntryName,
     entryEditorEnvironment,
@@ -983,7 +642,8 @@ function VariablesPageContent({
     entryEditorScope,
     hasLoadedCurrentEntries,
     locale,
-    name,
+  }
+  const entryEditorControllerDependencies = {
     refreshCurrentEntries,
     resetGlobalSearchData,
     store: {
@@ -1008,8 +668,37 @@ function VariablesPageContent({
       setValue,
       setValueError,
     },
-    value,
     variablesMessages,
+  }
+  const entryEditorControllerDraft = {
+    bulkInput,
+    name,
+    value,
+  }
+  const {
+    bulkApplyLabel,
+    canMutateEntryEditorScope,
+    duplicateSummary,
+    entryEditorDescription,
+    entryEditorNeedsEnvironmentSelection,
+    entryEditorTitle,
+    entryNameLabel,
+    entryValueLabel,
+    handleApplyBulkEntries,
+    handleBulkInputChange,
+    handleNameChange,
+    handleSaveEntry,
+    handleValueChange,
+    isBulkEditorActive,
+    isSingleEntryEditor,
+    parsedBulk,
+    parsedBulkErrors,
+    previewSummary,
+    saveActionLabel,
+  } = useVariablesEntryEditorController({
+    context: entryEditorControllerContext,
+    dependencies: entryEditorControllerDependencies,
+    draft: entryEditorControllerDraft,
   })
   const singleEntryForm = (
     <VariablesSingleEntryForm
@@ -1056,441 +745,215 @@ function VariablesPageContent({
     requestDeleteEnvironment,
     requestDeleteSelectedEntries,
   } = useVariablesDeleteController({
-    activeScope,
-    deleteConfirmationInputId,
-    deleteConfirmationValue,
-    editingEntryName,
-    environments,
-    hasSelectedEntries,
-    isDeletingEntries,
-    isDeletingEnvironment,
-    pendingDelete,
-    selectedEntryNames,
-    selectedEnvironment,
-    selectedRepository,
-    orchestration: {
-      clearEnvironmentEditing,
-      clearTableEditing,
-      loadEnvironmentSecretsForSelection,
-      loadEnvironmentVariablesForSelection,
-      resetGlobalSearchData,
-      updateVariablesSearch,
+    dependencies: {
+      orchestration: {
+        clearEnvironmentEditing,
+        clearTableEditing,
+        loadEnvironmentSecretsForSelection,
+        loadEnvironmentVariablesForSelection,
+        resetGlobalSearchData,
+        updateVariablesSearch,
+      },
+      store: {
+        closeEntryEditorImmediately,
+        closeEnvironmentCreateImmediately,
+        setDeleteConfirmationValue,
+        setEnvironmentSecrets,
+        setEnvironmentSecretsKey,
+        setEnvironmentSelectionError,
+        setEnvironmentVariables,
+        setEnvironmentVariablesKey,
+        setEnvironments,
+        setIsDeletingEntries,
+        setIsDeletingEnvironment,
+        setPendingDelete,
+        setRepositorySecrets,
+        setRepositorySecretsRepository,
+        setRepositoryVariables,
+        setRepositoryVariablesRepository,
+        setSelectedEntryNames,
+      },
+      variablesMessages,
     },
-    store: {
-      closeEntryEditorImmediately,
-      closeEnvironmentCreateImmediately,
-      setDeleteConfirmationValue,
-      setEnvironmentSecrets,
-      setEnvironmentSecretsKey,
-      setEnvironmentSelectionError,
-      setEnvironmentVariables,
-      setEnvironmentVariablesKey,
-      setEnvironments,
-      setIsDeletingEntries,
-      setIsDeletingEnvironment,
-      setPendingDelete,
-      setRepositorySecrets,
-      setRepositoryVariables,
-      setSelectedEntryNames,
+    selection: {
+      activeScope,
+      editingEntryName,
+      environments,
+      hasSelectedEntries,
+      selectedEntryNames,
+      selectedEnvironment,
+      selectedRepository,
     },
+    state: {
+      deleteConfirmationInputId,
+      deleteConfirmationValue,
+      isDeletingEntries,
+      isDeletingEnvironment,
+      pendingDelete,
+    },
+  })
+
+  const deleteDialogProps = createVariablesDeleteDialogProps({
+    deleteDialog,
     variablesMessages,
   })
-  const {
-    entriesPanelProps,
-    entryEditorDialogProps,
-    environmentCreateDialogProps,
-    globalSearchDialogProps,
-    targetPanelProps,
-  } = useVariablesPageViewModels({
+
+  const entriesPanelProps = createVariablesEntriesPanelProps({
     activeScope,
     allFilteredEntriesSelected,
-    bulkApplyLabel,
-    bulkEntryPanel,
     canMutateCurrentScope,
-    canMutateEntryEditorScope,
+    clearEntrySearch,
     currentEntries,
-    entriesListState: {
-      entrySortDirection,
-      entrySortField,
-      filteredEntries,
-      hasLoadedCurrentEntries,
-      isListActionDisabled,
-      isListLoading,
-      isTableEditing,
-      listEmptyDescription,
-      listEmptyTitle,
-      noMatchesTitle,
-      sortedFilteredEntries,
-    },
-    entriesPanelActions: {
-      onClearSearch: () => {
-        void updateVariablesSearch(
-          {
-            query: undefined,
-          },
-          {
-            replace: true,
-          },
-        )
-      },
-      onDeleteSelected: requestDeleteSelectedEntries,
-      onRequestDeleteEntry: (entryName: string) => {
-        requestDeleteEntries([entryName])
-      },
-      onSearchChange: (value: string) => {
-        void updateVariablesSearch(
-          {
-            query: value || undefined,
-          },
-          {
-            replace: true,
-          },
-        )
-      },
-      onSortChange: handleEntrySortChange,
-      onStartCreateEntry: startCreateEntry,
-      onStartEditEntry: startEditingEntry,
-      onToggleEntryEditing: (value: boolean) => setIsTableEditing(value),
-      onToggleEntrySelection: toggleEntrySelection,
-      onToggleFilteredSelection: toggleAllFilteredEntries,
-    },
-    entryEditorActions: {
-      onApplyBulkEntries: () => {
-        void handleApplyBulkEntries()
-      },
-      onCancel: requestCloseEntryEditor,
-      onOpenChange: (open: boolean, details: { reason: string }) => {
-        if (!open && details.reason === 'close-press') {
-          requestCloseEntryEditor()
-        }
-      },
-      onTabChange: (nextTab: 'single' | 'bulk') => {
-        void updateVariablesSearch(
-          {
-            tab: nextTab,
-          },
-          {
-            replace: true,
-          },
-        )
-      },
-    },
-    entryEditorDescription,
-    entryEditorNeedsEnvironmentSelection,
-    entryEditorRepository,
-    entryEditorScope,
-    entryEditorState: {
-      activeTab,
-      isBulkEditorActive,
-      isBulkSaving,
-      isSaving,
-      isSingleEntryEditor,
-      open: isEntryEditorOpen,
-      parsedBulkEntryCount: parsedBulk.entries.length,
-      parsedBulkErrorCount: parsedBulkErrors.length,
-      saveActionLabel,
-    },
-    entryEditorTitle,
-    environmentCreateActions: {
-      onClose: requestCloseEnvironmentCreate,
-      onEnvironmentNameChange: (value: string) => {
-        if (environmentNameError) {
-          setEnvironmentNameError(null)
-        }
-
-        setEnvironmentName(value)
-      },
-      onOpenChange: (open: boolean, details: { reason: string }) => {
-        if (!open && details.reason === 'close-press') {
-          requestCloseEnvironmentCreate()
-        }
-      },
-      onSubmit: () => {
-        void handleCreateEnvironment()
-      },
-    },
-    environmentCreateState: {
-      environmentName,
-      environmentNameError,
-      environmentNameErrorId,
-      environmentNameInputId,
-      isCreatingEnvironment,
-      isEnvironmentCreateOpen,
-      selectedRepository,
-    },
-    environmentOptions,
-    environmentSelectionError,
+    entrySortDirection,
+    entrySortField,
     environments,
     environmentsRepository,
-    filteredGlobalSearchResults,
-    globalSearchActions: {
-      onClearSearch: () => setGlobalSearchQuery(''),
-      onGlobalSearchQueryChange: setGlobalSearchQuery,
-      onOpenChange: setIsGlobalSearchDialogOpen,
-      onOpenResult: (result: GlobalSearchResult) => {
-        void openGlobalSearchResult(result)
-      },
-      onRetry: () => {
-        resetGlobalSearchData()
-        void loadGlobalSearchForRepository(selectedRepository)
-      },
-    },
-    globalSearchState: {
-      filteredResults: filteredGlobalSearchResults,
-      globalSearchError,
-      globalSearchInputId,
-      globalSearchQuery,
-      isGlobalSearchDialogOpen,
-      isGlobalSearchLoading,
-      selectedRepository,
-      trimmedGlobalSearchQuery,
-    },
+    filteredEntries,
+    hasLoadedCurrentEntries,
     hasPartiallySelectedEntries,
     hasSelectedEntries,
+    inputId: searchInputId,
+    isListActionDisabled,
+    isListLoading,
+    isTableEditing,
+    listEmptyDescription,
+    listEmptyTitle,
     locale,
-    repositoryError,
-    repositoryOptions,
-    repositories,
+    noMatchesTitle,
+    query: searchQuery,
+    requestDeleteEntries,
+    requestDeleteSelectedEntries,
     scopeConfig,
-    searchInputId,
-    searchQuery,
     selectedEntryNameSet,
     selectedEnvironment,
     selectedRepository,
-    singleEntryForm,
-    targetPanelActions: {
-      onDeleteEnvironment: requestDeleteEnvironment,
-      onDoneEnvironment: clearEnvironmentEditing,
-      onEnvironmentChange: (nextEnvironment: string) => {
-        void handleEnvironmentChange(nextEnvironment)
-      },
-      onOpenEnvironmentCreate: openEnvironmentCreate,
-      onRefresh: () => {
-        void refreshPageData()
-      },
-      onRepositoryChange: (nextRepository: string) => {
-        void handleRepositoryChange(nextRepository)
-      },
-      onStartEnvironmentEditing: () => setIsEnvironmentEditing(true),
-    },
-    targetStatus: {
-      isDeletingEnvironment,
-      isEnvironmentActionDisabled,
-      isEnvironmentEditing,
-      isRefreshingEnvironments,
-      isRefreshingRepositories,
-      isTargetRefreshing,
-    },
+    setEntrySearchQuery,
+    setEntrySort,
+    setIsTableEditing,
+    sortedFilteredEntries,
+    startCreateEntry,
+    startEditingEntry,
+    toggleAllFilteredEntries,
+    toggleEntrySelection,
     valueColumnLabel,
     variablesMessages,
   })
 
-  useEffect(() => {
-    if (
-      !isEntryEditorOpen ||
-      !entryEditorRepository ||
-      entryEditorNeedsEnvironmentSelection
-    ) {
-      return
-    }
+  const entryEditorDialogProps = createVariablesEntryEditorDialogProps({
+    activeTab,
+    bulkApplyLabel,
+    bulkEntryPanel,
+    canMutateEntryEditorScope,
+    entryEditorDescription,
+    entryEditorNeedsEnvironmentSelection,
+    entryEditorRepository,
+    entryEditorScope,
+    entryEditorTitle,
+    handleApplyBulkEntries,
+    isBulkEditorActive,
+    isBulkSaving,
+    isSaving,
+    isSingleEntryEditor,
+    open: isEntryEditorOpen,
+    parsedBulkEntryCount: parsedBulk.entries.length,
+    parsedBulkErrorCount: parsedBulkErrors.length,
+    requestCloseEntryEditor,
+    saveActionLabel,
+    setEntryEditorTab,
+    singleEntryForm,
+    variablesMessages,
+  })
 
-    const targetInputId = isBulkEditorActive
-      ? bulkInputId
-      : isSingleEntryEditor
-        ? entryValueInputId
-        : entryNameInputId
-
-    const frameId = window.requestAnimationFrame(() => {
-      const target = document.getElementById(targetInputId)
-
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement
-      ) {
-        target.focus()
-        target.select()
-      }
+  const environmentCreateDialogProps =
+    createVariablesEnvironmentCreateDialogProps({
+      environmentName,
+      environmentNameError,
+      environmentNameErrorId,
+      environmentNameInputId,
+      handleCreateEnvironment,
+      isCreatingEnvironment,
+      isEnvironmentCreateOpen,
+      requestCloseEnvironmentCreate,
+      selectedRepository,
+      setEnvironmentName,
+      setEnvironmentNameError,
+      variablesMessages,
     })
 
-    return () => {
-      window.cancelAnimationFrame(frameId)
-    }
-  }, [
+  const focusManagementProps = createVariablesFocusManagementProps({
     bulkInputId,
     entryEditorNeedsEnvironmentSelection,
     entryEditorRepository,
     entryNameInputId,
     entryValueInputId,
+    globalSearchInputId,
     isBulkEditorActive,
     isEntryEditorOpen,
+    isGlobalSearchDialogOpen,
     isSingleEntryEditor,
-  ])
+  })
 
-  useEffect(() => {
-    if (!isGlobalSearchDialogOpen) {
-      return
-    }
+  const globalSearchDialogProps = createVariablesGlobalSearchDialogProps({
+    filteredResults: filteredGlobalSearchResults,
+    globalSearchError,
+    globalSearchInputId,
+    globalSearchQuery,
+    isGlobalSearchDialogOpen,
+    isGlobalSearchLoading,
+    loadGlobalSearchForRepository,
+    locale,
+    resetGlobalSearchData,
+    saveGlobalSearchResult,
+    selectedRepository,
+    setGlobalSearchQuery,
+    setIsGlobalSearchDialogOpen,
+    trimmedGlobalSearchQuery,
+    variablesMessages,
+  })
 
-    const frameId = window.requestAnimationFrame(() => {
-      const target = document.getElementById(globalSearchInputId)
-
-      if (target instanceof HTMLInputElement) {
-        target.focus()
-        target.select()
-      }
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-    }
-  }, [globalSearchInputId, isGlobalSearchDialogOpen])
+  const targetPanelProps = createVariablesTargetPanelProps({
+    activeScope,
+    clearEnvironmentEditing,
+    environmentSelectionError,
+    environments,
+    handleEnvironmentChange,
+    handleRepositoryChange,
+    handleScopeChange,
+    handleScopePrefetch,
+    isDeletingEnvironment,
+    isEnvironmentActionDisabled,
+    isEnvironmentEditing,
+    isListLoading,
+    isRefreshingEnvironments,
+    isRefreshingRepositories,
+    isTargetRefreshing,
+    openEnvironmentCreate,
+    refreshPageData,
+    repositories,
+    repositoryError,
+    requestDeleteEnvironment,
+    selectedEnvironment,
+    selectedRepository,
+    setIsEnvironmentEditing,
+    variablesMessages,
+  })
 
   return (
-    <main className="page-wrap flex min-h-full flex-col gap-6 px-4 py-6 sm:py-8">
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <h1 className="sr-only">{scopeConfig.title}</h1>
-            {currentTargetLabel ? (
-              <Badge
-                variant="outline"
-                className="h-auto max-w-full justify-start self-start px-2.5 py-1 whitespace-normal break-all text-muted-foreground"
-              >
-                {currentTargetLabel}
-              </Badge>
-            ) : null}
-          </div>
-
-          {status.authenticated ? (
-            <Button
-              type="button"
-              variant="outline"
-              aria-haspopup="dialog"
-              aria-expanded={isGlobalSearchDialogOpen}
-              aria-label={variablesMessages.globalSearch.title}
-              className="self-start lg:shrink-0"
-              title={variablesMessages.globalSearch.title}
-              onClick={() => setIsGlobalSearchDialogOpen(true)}
-            >
-              <SearchIcon
-                data-icon="inline-start"
-                className="text-muted-foreground"
-              />
-              <span className="text-foreground">
-                {variablesMessages.globalSearch.title}
-              </span>
-            </Button>
-          ) : null}
-        </div>
-
-        <Tabs
-          className="w-full"
-          value={activeScope}
-          onValueChange={(nextScope) =>
-            void handleScopeChange(nextScope as SettingsScope)
-          }
-        >
-          <TabsList className="grid! h-auto! w-full! grid-cols-2 gap-2 rounded-lg border border-border/70 bg-muted/30 p-1.5 sm:inline-flex! sm:w-fit! sm:gap-1 sm:p-1">
-            {scopeTabDisplayOrder.map((scope) => {
-              const messageKey = scopeMessageKeys[scope]
-              const config = variablesMessages.scopes[messageKey]
-
-              return (
-                <TabsTrigger
-                  key={scope}
-                  value={scope}
-                  className="h-11 w-full min-w-0 rounded-md border border-transparent px-3 text-sm font-medium text-muted-foreground transition-[background-color,border-color,color,box-shadow] data-active:border-border/70 data-active:bg-background data-active:text-foreground data-active:shadow-sm sm:h-10 sm:w-auto sm:min-w-29 sm:flex-none sm:px-4"
-                >
-                  {config.tabLabel}
-                </TabsTrigger>
-              )
-            })}
-          </TabsList>
-        </Tabs>
-      </section>
-
-      {!status.authenticated ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>{variablesMessages.unauthenticatedTitle}</EmptyTitle>
-            <EmptyDescription>
-              {variablesMessages.unauthenticatedDescription}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Link
-              to="/connect"
-              className={`${buttonVariants({ size: 'lg' })} no-underline`}
-            >
-              {variablesMessages.openAccountButton}
-            </Link>
-          </EmptyContent>
-        </Empty>
-      ) : (
-        <>
-          <div className="flex flex-col gap-4">
-            <VariablesTargetPanel {...targetPanelProps} />
-
-            <VariablesEntriesPanel {...entriesPanelProps} />
-          </div>
-
-          <VariablesGlobalSearchDialog {...globalSearchDialogProps} />
-
-          <VariablesEntryEditorDialog {...entryEditorDialogProps} />
-
-          <VariablesEnvironmentCreateDialog {...environmentCreateDialogProps} />
-        </>
-      )}
-
-      <VariablesDeleteConfirmDialog
-        actions={deleteDialog.actions}
-        state={deleteDialog.state}
-        variablesMessages={variablesMessages}
-      />
-    </main>
+    <VariablesRouteScreenContainer
+      deleteDialog={deleteDialogProps}
+      entriesPanel={entriesPanelProps}
+      entryEditorDialog={entryEditorDialogProps}
+      environmentCreateDialog={environmentCreateDialogProps}
+      focusManagement={focusManagementProps}
+      globalSearchDialog={globalSearchDialogProps}
+      isAuthenticated={status.authenticated}
+      isGlobalSearchDialogOpen={isGlobalSearchDialogOpen}
+      onOpenGlobalSearch={() => setIsGlobalSearchDialogOpen(true)}
+      scopeTitle={scopeConfig.title}
+      targetPanel={targetPanelProps}
+      variablesMessages={variablesMessages}
+    />
   )
-}
-
-function VariablesSearchTriggerSkeleton() {
-  return <Skeleton className="h-8 w-40 rounded-lg lg:shrink-0" />
-}
-
-function VariablesTargetFieldsSkeleton({
-  showsEnvironmentTarget,
-}: {
-  showsEnvironmentTarget: boolean
-}) {
-  return (
-    <>
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-8 w-full rounded-lg" />
-      </div>
-
-      {showsEnvironmentTarget ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-full rounded-lg" />
-              </div>
-            </div>
-
-            <div className="flex items-end lg:justify-end">
-              <div className="flex flex-wrap gap-2">
-                <Skeleton className="h-8 w-20 rounded-lg" />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </>
-  )
-}
-
-function VariablesCurrentTargetSkeleton() {
-  return <Skeleton className="h-7 w-44 max-w-full rounded-full" />
 }
 
 function VariablesRoutePending() {
@@ -1500,76 +963,9 @@ function VariablesRoutePending() {
   const showsEnvironmentTarget = isEnvironmentScope(activeScope)
 
   return (
-    <main className="page-wrap flex min-h-full flex-col gap-6 px-4 py-6 sm:py-8">
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <VariablesCurrentTargetSkeleton />
-          </div>
-
-          <VariablesSearchTriggerSkeleton />
-        </div>
-
-        <div className="grid! h-auto! w-full! grid-cols-2 gap-2 rounded-lg border border-border/70 bg-muted/30 p-1.5 sm:inline-flex! sm:w-fit! sm:gap-1 sm:p-1">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton
-              key={index}
-              className="h-11 w-full rounded-md sm:h-10 sm:w-29"
-            />
-          ))}
-        </div>
-      </section>
-
-      <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{messages.pending.targetTitle}</CardTitle>
-            <CardDescription>
-              {messages.pending.targetDescription}
-            </CardDescription>
-            <CardAction>
-              <Skeleton className="h-8 w-24 rounded-lg" />
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <VariablesTargetFieldsSkeleton
-              showsEnvironmentTarget={showsEnvironmentTarget}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{messages.pending.listTitle}</CardTitle>
-            <CardDescription>
-              {messages.pending.listDescription}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-1">
-                <Skeleton className="h-8 w-full rounded-lg sm:flex-1" />
-                <Skeleton className="h-8 w-24 rounded-lg" />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Skeleton className="h-8 w-24 rounded-lg" />
-                <Skeleton className="h-8 w-28 rounded-lg" />
-              </div>
-            </div>
-            <LoadingTable />
-          </CardContent>
-        </Card>
-      </div>
-    </main>
-  )
-}
-
-export function LoadingSearchResults() {
-  return (
-    <div className="grid gap-3" aria-busy="true" aria-live="polite">
-      <Skeleton className="h-20 w-full rounded-xl" />
-      <Skeleton className="h-20 w-full rounded-xl" />
-      <Skeleton className="h-20 w-full rounded-xl" />
-    </div>
+    <VariablesRoutePendingScreen
+      messages={messages}
+      showsEnvironmentTarget={showsEnvironmentTarget}
+    />
   )
 }

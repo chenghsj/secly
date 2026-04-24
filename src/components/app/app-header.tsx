@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Badge } from '#/components/ui/badge'
+import { APP_NAME } from '#/lib/product'
 import { LocaleSwitcher } from './locale-switcher'
 import { ThemeSwitcher } from './theme-switcher'
 import { useAppPreferences } from './app-settings-provider'
@@ -15,7 +16,7 @@ export function AppHeader() {
             to="/"
             className="text-base font-semibold text-foreground no-underline"
           >
-            GH VarDeck
+            {APP_NAME}
           </Link>
 
           <Badge variant="outline">{messages.common.foundationStatus}</Badge>

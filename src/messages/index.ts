@@ -4,15 +4,7 @@ import { zhTwMessages } from './zh-tw'
 
 export type AppLocale = 'en' | 'zh-CN' | 'zh-TW'
 
-type LocalizedMessageShape<T> = T extends string
-  ? string
-  : T extends readonly (infer Item)[]
-    ? ReadonlyArray<LocalizedMessageShape<Item>>
-    : T extends object
-      ? { [Key in keyof T]: LocalizedMessageShape<T[Key]> }
-      : T
-
-export type AppMessages = LocalizedMessageShape<typeof enMessages>
+export type AppMessages = typeof enMessages
 
 export const defaultLocale: AppLocale = 'en'
 

@@ -23,6 +23,7 @@ export const enMessages = {
     triggerLabel: 'Account menu',
     signedInAs: 'Signed in as',
     switchAccount: 'Switch account',
+    openOnGitHub: 'Open on GitHub',
     openProfile: 'Your profile',
     openRepositories: 'Your repositories',
     openOrganizations: 'Your organizations',
@@ -34,8 +35,8 @@ export const enMessages = {
     noActiveAccount: 'No active GitHub account',
     activeBadge: 'Active',
     switchSuccess: 'Active GitHub account switched.',
-    switchFailed: 'GH VarDeck could not switch the active GitHub CLI account.',
-    refreshFailed: 'GH VarDeck could not refresh the local GitHub CLI status.',
+    switchFailed: 'Secly could not switch the active GitHub CLI account.',
+    refreshFailed: 'Secly could not refresh the local GitHub CLI status.',
   },
   theme: {
     label: 'Theme',
@@ -52,7 +53,7 @@ export const enMessages = {
     heroKicker: 'Local-first GitHub variable manager',
     heroTitle: 'Manage repository variables from a dedicated web UI and CLI.',
     heroDescription:
-      'GH VarDeck is being built as a standalone TanStack Start + Vite application with predictable local storage, clean uninstall boundaries, and local GitHub CLI authentication.',
+      'Secly is being built as a standalone TanStack Start + Vite application with predictable local storage, clean uninstall boundaries, and local GitHub CLI authentication.',
     heroPrimary: 'Check GitHub login',
     heroSecondary: 'Review architecture',
     foundationAlertTitle: 'Foundation slice in progress',
@@ -143,18 +144,18 @@ export const enMessages = {
       'The lifecycle model treats local runtime state and source code as separate concerns so removal is predictable.',
     lifecycleAlertTitle: 'What uninstall is allowed to remove',
     lifecycleAlertDescription:
-      'Only the tracked app data root and the CLI shim created by GH VarDeck. Shell profiles, unrelated files, and the repo itself are left alone.',
+      'Only the tracked app data root and the CLI shim created by Secly. Shell profiles, unrelated files, and the repo itself are left alone.',
     installTitle: 'Install behavior',
     installDescription:
       'Setup creates the deterministic local directories and links the command shim without modifying shell startup files.',
     installSteps: [
-      'Create ~/Library/Application Support/gh-vardeck with data, cache, and logs directories.',
+      'Create ~/Library/Application Support/secly with data, cache, and logs directories.',
       'Write install metadata so status and uninstall know exactly what was created.',
-      'Optionally link ~/.local/bin/ghdeck to the repository launcher without touching PATH configuration.',
+      'Optionally link ~/.local/bin/secly to the repository launcher without touching PATH configuration.',
     ],
     uninstallTitle: 'Uninstall behavior',
     uninstallDescription:
-      'Teardown removes only assets GH VarDeck created and can positively identify.',
+      'Teardown removes only assets Secly created and can positively identify.',
     uninstallSteps: [
       'Remove the tracked CLI shim if it points to this repository launcher.',
       'Remove the dedicated app data root after confirmation or force mode.',
@@ -167,19 +168,19 @@ export const enMessages = {
     kicker: 'GitHub CLI auth',
     title: 'Reuse your local GitHub CLI login instead of running app OAuth.',
     description:
-      'GH VarDeck reads gh auth status from the same machine running the app. If you are not signed in yet, this page opens Terminal and delegates login to the local GH VarDeck CLI, which then runs gh auth login --web.',
+      'Secly reads gh auth status from the same machine running the app. If you are not signed in yet, this page opens Terminal and delegates login to the local Secly CLI, which then runs gh auth login --web.',
     statusTitle: 'Current GitHub CLI status',
     statusDescription:
-      'This page checks the local gh session that GH VarDeck will reuse for repository discovery and variable management.',
+      'This page checks the local gh session that Secly will reuse for repository discovery and variable management.',
     authenticatedTitle: 'GitHub CLI is already authenticated',
     authenticatedDescription:
-      'An active gh session is available on this machine, so GH VarDeck can use it immediately.',
+      'An active gh session is available on this machine, so Secly can use it immediately.',
     unauthenticatedTitle: 'GitHub CLI is installed but not logged in',
     unauthenticatedDescription:
-      'Start the local login flow, complete the browser approval, then return to this page. GH VarDeck will refresh the status automatically.',
+      'Start the local login flow, complete the browser approval, then return to this page. Secly will refresh the status automatically.',
     missingCliTitle: 'GitHub CLI is not installed',
     missingCliDescription:
-      'Install gh on this machine before using GH VarDeck auth. The web UI only reuses a local GitHub CLI session.',
+      'Install gh on this machine before using Secly auth. The web UI only reuses a local GitHub CLI session.',
     authenticatedBadge: 'Authenticated',
     unauthenticatedBadge: 'Needs login',
     missingCliBadge: 'Missing gh',
@@ -203,12 +204,12 @@ export const enMessages = {
     cancelLoginButton: 'Cancel',
     cancellingLoginButton: 'Cancelling…',
     cancelLoginFailed:
-      'GH VarDeck could not cancel the pending GitHub CLI login flow.',
+      'Secly could not cancel the pending GitHub CLI login flow.',
     oneTimeCodeCopied: 'One-time code copied.',
     oneTimeCodeCopyFailed:
-      'GH VarDeck could not copy the one-time code automatically.',
+      'Secly could not copy the one-time code automatically.',
     authenticatedButton: 'GitHub CLI ready',
-    refreshFailed: 'GH VarDeck could not refresh the local GitHub CLI status.',
+    refreshFailed: 'Secly could not refresh the local GitHub CLI status.',
     switchAccountTitle: 'Switch account',
     switchAccountDescription:
       'Choose another authenticated gh account already available on this machine.',
@@ -219,7 +220,7 @@ export const enMessages = {
     switchAccountUnavailable:
       'Add a second authenticated gh account on github.com to enable local switching.',
     switchSelectionRequired: 'Select a GitHub account before switching.',
-    switchFailed: 'GH VarDeck could not switch the active GitHub CLI account.',
+    switchFailed: 'Secly could not switch the active GitHub CLI account.',
     switchSuccess: 'Active GitHub account switched.',
     logoutSectionTitle: 'Log out accounts',
     logoutSectionDescription:
@@ -246,41 +247,40 @@ export const enMessages = {
     logoutAccountSuccess: 'GitHub account logged out.',
     logoutCurrentSuccess: 'Current GitHub account logged out.',
     logoutAllSuccess: 'All local GitHub accounts logged out.',
-    logoutFailed:
-      'GH VarDeck could not log out the selected GitHub CLI accounts.',
+    logoutFailed: 'Secly could not log out the selected GitHub CLI accounts.',
     backHomeButton: 'Back home',
     docsButton: 'Open GitHub CLI docs',
     preflightTitle: 'Before you start',
     preflightDescription:
-      'This flow is intentionally local-first. GH VarDeck does not store its own GitHub OAuth token for this slice.',
+      'This flow is intentionally local-first. Secly does not store its own GitHub OAuth token for this slice.',
     preflightSteps: [
       {
         title: '1. Install GitHub CLI',
         description:
-          'Install gh on the same machine that runs GH VarDeck. This page reads local gh auth state directly.',
+          'Install gh on the same machine that runs Secly. This page reads local gh auth state directly.',
       },
       {
-        title: '2. Start login from GH VarDeck',
+        title: '2. Start login from Secly',
         description:
-          'Use the button above to open Terminal and run the local GH VarDeck login command, which delegates to gh auth login --web.',
+          'Use the button above to open Terminal and run the local Secly login command, which delegates to gh auth login --web.',
       },
       {
         title: '3. Return after approval',
         description:
-          'Finish the browser flow opened by gh, then return to this page. GH VarDeck will refresh the active account automatically.',
+          'Finish the browser flow opened by gh, then return to this page. Secly will refresh the active account automatically.',
       },
     ],
     launchingTitle: 'Starting local GitHub CLI login',
     launchingDescription:
-      'GH VarDeck is opening Terminal and handing off to the local CLI so gh can start its browser-based login flow.',
+      'Secly is opening Terminal and handing off to the local CLI so gh can start its browser-based login flow.',
     launchSuccessTitle: 'Local GitHub login started',
     errorTitle: 'GitHub CLI login did not start',
-    startFailed: 'GH VarDeck could not start the local GitHub CLI login flow.',
+    startFailed: 'Secly could not start the local GitHub CLI login flow.',
     accountCardTitle: 'Connected GitHub accounts',
     accountCardDescription:
-      'GH VarDeck uses the active local gh account for repository discovery and variables. You can switch or log out saved accounts below.',
+      'Secly uses the active local gh account for repository discovery and variables. You can switch or log out saved accounts below.',
     shellDescription: 'Reuse the local gh session on this machine.',
-    currentAccountBadge: 'Current account',
+    currentAccountBadge: 'Active',
     commandsCardTitle: 'Local auth commands',
     commandsCardDescription:
       'These commands are the contract between the web UI and the paired local CLI.',
@@ -293,7 +293,7 @@ export const enMessages = {
     loginCommandLabel: 'Login command',
     notAuthenticatedTitle: 'Sign in with GitHub CLI',
     notAuthenticatedDescription:
-      'GH VarDeck uses the local gh session on this machine. Start login, approve in your browser, and this page will update automatically when you come back.',
+      'Secly uses the local gh session on this machine. Start login, approve in your browser, and this page will update automatically when you come back.',
   },
   variables: {
     shellDescription:
@@ -305,10 +305,12 @@ export const enMessages = {
       'Choose the repository and environment before editing environment-scoped settings.',
     unauthenticatedTitle: 'GitHub CLI login is required first',
     unauthenticatedDescription:
-      'GH VarDeck reuses the local gh session on this machine. Open the Account page, complete the login flow, then return here.',
+      'Secly reuses the local gh session on this machine. Open the Account page, complete the login flow, then return here.',
     openAccountButton: 'Open account page',
     repositoryLabel: 'Repository',
+    scopeLabel: 'Scope',
     environmentLabel: 'Environment',
+    environmentEmptyOptionLabel: '(no variables)',
     createEnvironmentLabel: 'Create environment',
     repositorySearchPlaceholder: 'Search repositories',
     environmentSearchPlaceholder: 'Search environments',
@@ -335,6 +337,8 @@ export const enMessages = {
     noEnvironmentsTitle: 'No environments yet',
     noEnvironmentsDescription:
       'Create the first environment for {repository} to start managing environment-scoped settings.',
+    environmentAdminAccessDescription:
+      'Creating and deleting environments requires repository owner or admin access on GitHub.',
     selectRepositoryTitle: 'Choose a repository first',
     selectRepositoryDescription:
       'Select a repository before loading or changing settings.',
@@ -497,7 +501,7 @@ export const enMessages = {
       copyConfirmationButton: 'Copy confirmation value',
       confirmationCopied: 'Confirmation value copied.',
       confirmationCopyFailed:
-        'GH VarDeck could not copy the confirmation value automatically.',
+        'Secly could not copy the confirmation value automatically.',
     },
     pending: {
       targetTitle: 'Target',
@@ -505,6 +509,7 @@ export const enMessages = {
       listTitle: 'Settings list',
       listDescription:
         'Loading repository and environment settings for the current scope.',
+      listRefreshingLabel: 'Loading the current scope settings…',
       editorTitle: 'Editor',
       editorDescription:
         'Loading the editing tools for this repository and scope.',
@@ -524,7 +529,7 @@ export const enMessages = {
         searchPlaceholder: 'Search by name or value',
         bulkPlaceholder: `API_BASE_URL=https://example.com
 FEATURE_FLAG=true
-export PUBLIC_APP_NAME=GH VarDeck`,
+export PUBLIC_APP_NAME=Secly`,
         valuePlaceholder: 'https://example.com',
         entryLabel: 'variable',
         entryTitle: 'Variable',
@@ -568,7 +573,7 @@ CF_API_TOKEN=...`,
         searchPlaceholder: 'Search by name or value',
         bulkPlaceholder: `API_BASE_URL=https://example.com
 FEATURE_FLAG=true
-PUBLIC_APP_NAME=GH VarDeck`,
+PUBLIC_APP_NAME=Secly`,
         valuePlaceholder: 'https://example.com',
         entryLabel: 'variable',
         entryTitle: 'Variable',

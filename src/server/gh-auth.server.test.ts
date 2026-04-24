@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { describe, expect, it, vi } from 'vitest'
+import { CLI_LOGIN_COMMAND } from '../lib/product'
 import {
   buildLocalCliLoginCommand,
   cancelGhAuthLogin,
@@ -30,7 +31,7 @@ function createStatus(
   return {
     activeAccount: null,
     authenticated: false,
-    cliLoginCommand: 'ghdeck login',
+    cliLoginCommand: CLI_LOGIN_COMMAND,
     ghInstalled: true,
     ghLoginCommand:
       'gh auth login --hostname github.com --web --git-protocol https --skip-ssh-key --scopes workflow',

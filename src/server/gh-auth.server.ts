@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { z } from 'zod'
-import { CLI_NAME } from '../lib/product'
+import { APP_NAME, CLI_NAME } from '../lib/product'
 
 const execFileAsync = promisify(execFile)
 const ANSI_ESCAPE_PATTERN = /\u001b\[[0-9;]*m/g
@@ -293,9 +293,14 @@ async function startManualWebGhAuthLogin(
     typeof child.once !== 'function'
   ) {
     throw new Error(
-      'GH VarDeck could not capture the GitHub CLI one-time code.',
+      `${APP_NAME} could not capture the GitHub CLI one-time code.`,
     )
   }
+
+  const childStderr = child.stderr
+  const childStdout = child.stdout
+  const childOn = child.on.bind(child)
+  const childOnce = child.once.bind(child)
 
   let bufferedOutput = ''
   let childExited = false
@@ -356,10 +361,10 @@ async function startManualWebGhAuthLogin(
       })
     }
 
-    child.stderr.on('data', handleChunk)
-    child.stdout.on('data', handleChunk)
-    child.on('exit', handleExit)
-    child.once('error', (error) => {
+    childStderr.on('data', handleChunk)
+    childStdout.on('data', handleChunk)
+    childOn('exit', handleExit)
+    childOnce('error', (error) => {
       childExited = true
 
       if (session && pendingManualWebLogin === session) {
@@ -406,8 +411,7 @@ async function startManualWebGhAuthLogin(
   return {
     command,
     launched: true,
-    message:
-      'Copy the one-time code, continue in GitHub in your browser, approve access, then return to the status page. GH VarDeck will refresh automatically when you come back.',
+    message: `Copy the one-time code, continue in GitHub in your browser, approve access, then return to the status page. ${APP_NAME} will refresh automatically when you come back.`,
     method: 'manual-web' as const,
     verificationCode: details.verificationCode,
     verificationUrl: details.verificationUrl,
@@ -836,8 +840,7 @@ export async function startGhAuthLogin(options?: {
     return {
       command,
       launched: true,
-      message:
-        'Opened Terminal to run the local GH VarDeck login command. Finish the browser flow there, then return to the status page. GH VarDeck will refresh automatically when you come back.',
+      message: `Opened Terminal to run the local ${APP_NAME} login command. Finish the browser flow there, then return to the status page. ${APP_NAME} will refresh automatically when you come back.`,
       method: 'terminal',
     }
   }
@@ -852,8 +855,7 @@ export async function startGhAuthLogin(options?: {
   return {
     command: status.ghLoginCommand,
     launched: true,
-    message:
-      'Started GitHub CLI login in a background process. Complete the browser flow, then return to the status page. GH VarDeck will refresh automatically when you come back.',
+    message: `Started GitHub CLI login in a background process. Complete the browser flow, then return to the status page. ${APP_NAME} will refresh automatically when you come back.`,
     method: 'background-process',
   }
 }

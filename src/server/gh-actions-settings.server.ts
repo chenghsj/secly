@@ -1,13 +1,20 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { z } from 'zod'
+import { CLI_LOGIN_COMMAND } from '../lib/product'
 import type { GhAuthStatus } from './gh-auth.server'
 import { GH_CLI_INSTALL_URL, getGhAuthStatus } from './gh-auth.server'
+import {
+  getCurrentRequestSignal,
+  resolveAbortedReadRequestFallback,
+} from './request-abort.server'
 
 const execFileAsync = promisify(execFile)
 
 const SECRET_READ_BACK_MAX_ATTEMPTS = 5
 const SECRET_READ_BACK_RETRY_DELAY_MS = 200
+const VARIABLE_READ_BACK_MAX_ATTEMPTS = 5
+const VARIABLE_READ_BACK_RETRY_DELAY_MS = 200
 
 const actionsSecretSchema = z.object({
   name: z.string(),
@@ -38,6 +45,17 @@ const environmentsResponseSchema = z.object({
 type ExecRunner = (
   file: string,
   args: string[],
+) => Promise<{
+  stderr: string
+  stdout: string
+}>
+
+type ExecRunnerWithOptions = (
+  file: string,
+  args: string[],
+  options?: {
+    signal?: AbortSignal
+  },
 ) => Promise<{
   stderr: string
   stdout: string
@@ -81,8 +99,21 @@ export type UpsertActionsVariableResult = {
   variable: GhActionsVariable
 }
 
-function defaultExecRunner(file: string, args: string[]) {
-  return execFileAsync(file, args)
+function defaultExecRunner(
+  file: string,
+  args: string[],
+  options?: {
+    signal?: AbortSignal
+  },
+) {
+  return execFileAsync(file, args, { signal: options?.signal })
+}
+
+function withExecSignal(
+  execRunner: ExecRunnerWithOptions,
+  signal?: AbortSignal,
+): ExecRunner {
+  return (file, args) => execRunner(file, args, { signal })
 }
 
 function buildGhApiArgs(...args: string[]) {
@@ -115,7 +146,7 @@ function assertGhReady(status: GhAuthStatus) {
   if (!status.authenticated) {
     throw new Error(
       status.issues[0] ??
-        'GitHub CLI is not authenticated. Run ghdeck login first.',
+        `GitHub CLI is not authenticated. Run ${CLI_LOGIN_COMMAND} first.`,
     )
   }
 }
@@ -164,6 +195,12 @@ function buildEnvironmentBasePath(repository: string) {
 
 function buildEnvironmentPath(repository: string, environmentName: string) {
   return `${buildEnvironmentBasePath(repository)}/${encodeURIComponent(environmentName)}`
+}
+
+function buildEnvironmentManagementAccessError(repository: string) {
+  return new Error(
+    `GitHub could not manage environments for ${repository}. Creating and deleting environments requires repository owner or admin access, and private repositories may also require a compatible GitHub plan.`,
+  )
 }
 
 function buildGhVariableListArgs(repository: string, environmentName?: string) {
@@ -308,6 +345,21 @@ function buildFallbackSecretMetadata(
   }
 }
 
+function buildFallbackVariableMetadata(
+  variableName: string,
+  value: string,
+  existing: GhActionsVariable | undefined,
+): GhActionsVariable {
+  const timestamp = new Date().toISOString()
+
+  return {
+    createdAt: existing?.createdAt ?? timestamp,
+    name: variableName,
+    updatedAt: timestamp,
+    value,
+  }
+}
+
 async function listSecretsInternal(
   repository: string,
   execRunner: ExecRunner,
@@ -368,6 +420,36 @@ async function readBackSecretMetadata(
   return null
 }
 
+async function readBackVariableMetadata(
+  repository: string,
+  variableName: string,
+  execRunner: ExecRunner,
+  environmentName?: string,
+): Promise<GhActionsVariable | null> {
+  for (
+    let attempt = 0;
+    attempt < VARIABLE_READ_BACK_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const variables = await listVariablesInternal(
+      repository,
+      execRunner,
+      environmentName,
+    )
+    const variable = variables.find((item) => item.name === variableName)
+
+    if (variable) {
+      return variable
+    }
+
+    if (attempt < VARIABLE_READ_BACK_MAX_ATTEMPTS - 1) {
+      await delay(VARIABLE_READ_BACK_RETRY_DELAY_MS)
+    }
+  }
+
+  return null
+}
+
 async function getEnvironmentInternal(
   repository: string,
   environmentName: string,
@@ -396,17 +478,30 @@ async function getEnvironmentInternal(
 export async function listRepositorySecrets(
   repository: string,
   options?: {
-    execRunner?: ExecRunner
+    execRunner?: ExecRunnerWithOptions
+    signal?: AbortSignal
     status?: GhAuthStatus
   },
 ): Promise<GhActionsSecret[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
+  )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
 
-  assertGhReady(status)
-  parseRepository(repository)
+    assertGhReady(status)
+    parseRepository(repository)
 
-  return listSecretsInternal(repository, execRunner)
+    return await listSecretsInternal(repository, execRunner)
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function upsertRepositorySecret(
@@ -461,42 +556,55 @@ export async function deleteRepositorySecret(
 export async function listRepositoryEnvironments(
   repository: string,
   options?: {
-    execRunner?: ExecRunner
+    execRunner?: ExecRunnerWithOptions
+    signal?: AbortSignal
     status?: GhAuthStatus
   },
 ): Promise<GhEnvironmentSummary[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
-
-  assertGhReady(status)
-  parseRepository(repository)
-
-  const { stdout } = await execRunner(
-    'gh',
-    buildGhApiArgs(
-      '--method',
-      'GET',
-      `${buildEnvironmentBasePath(repository)}?per_page=100`,
-    ),
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
   )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
 
-  const environments = environmentsResponseSchema.parse(JSON.parse(stdout))
+    assertGhReady(status)
+    parseRepository(repository)
 
-  const environmentSummaries = await Promise.all(
-    environments.environments.map(async (environment) => {
-      const variables = await listVariablesInternal(
-        repository,
-        execRunner,
-        environment.name,
-      )
+    const { stdout } = await execRunner(
+      'gh',
+      buildGhApiArgs(
+        '--method',
+        'GET',
+        `${buildEnvironmentBasePath(repository)}?per_page=100`,
+      ),
+    )
 
-      return mapEnvironment(environment, variables.length)
-    }),
-  )
+    const environments = environmentsResponseSchema.parse(JSON.parse(stdout))
 
-  return environmentSummaries.sort((left, right) =>
-    left.name.localeCompare(right.name),
-  )
+    const environmentSummaries = await Promise.all(
+      environments.environments.map(async (environment) => {
+        const variables = await listVariablesInternal(
+          repository,
+          execRunner,
+          environment.name,
+        )
+
+        return mapEnvironment(environment, variables.length)
+      }),
+    )
+
+    return environmentSummaries.sort((left, right) =>
+      left.name.localeCompare(right.name),
+    )
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function createRepositoryEnvironment(
@@ -526,14 +634,22 @@ export async function createRepositoryEnvironment(
     )
   }
 
-  await execRunner(
-    'gh',
-    buildGhApiArgs(
-      '--method',
-      'PUT',
-      buildEnvironmentPath(repository, normalizedEnvironmentName),
-    ),
-  )
+  try {
+    await execRunner(
+      'gh',
+      buildGhApiArgs(
+        '--method',
+        'PUT',
+        buildEnvironmentPath(repository, normalizedEnvironmentName),
+      ),
+    )
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw buildEnvironmentManagementAccessError(repository)
+    }
+
+    throw error
+  }
 
   const environment = await getEnvironmentInternal(
     repository,
@@ -566,35 +682,56 @@ export async function deleteRepositoryEnvironment(
 
   const normalizedEnvironmentName = normalizeEnvironmentName(environmentName)
 
-  await execRunner(
-    'gh',
-    buildGhApiArgs(
-      '--method',
-      'DELETE',
-      buildEnvironmentPath(repository, normalizedEnvironmentName),
-    ),
-  )
+  try {
+    await execRunner(
+      'gh',
+      buildGhApiArgs(
+        '--method',
+        'DELETE',
+        buildEnvironmentPath(repository, normalizedEnvironmentName),
+      ),
+    )
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      throw buildEnvironmentManagementAccessError(repository)
+    }
+
+    throw error
+  }
 }
 
 export async function listEnvironmentVariables(
   repository: string,
   environmentName: string,
   options?: {
-    execRunner?: ExecRunner
+    execRunner?: ExecRunnerWithOptions
+    signal?: AbortSignal
     status?: GhAuthStatus
   },
 ): Promise<GhActionsVariable[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
-
-  assertGhReady(status)
-  parseRepository(repository)
-
-  return listVariablesInternal(
-    repository,
-    execRunner,
-    normalizeEnvironmentName(environmentName),
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
   )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
+
+    assertGhReady(status)
+    parseRepository(repository)
+
+    return await listVariablesInternal(
+      repository,
+      execRunner,
+      normalizeEnvironmentName(environmentName),
+    )
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function upsertEnvironmentVariable(
@@ -634,18 +771,13 @@ export async function upsertEnvironmentVariable(
     ),
   )
 
-  const nextVariables = await listVariablesInternal(
-    repository,
-    execRunner,
-    normalizedEnvironmentName,
-  )
-  const variable = nextVariables.find((item) => item.name === variableName)
-
-  if (!variable) {
-    throw new Error(
-      `GitHub CLI reported success, but ${variableName} could not be read back.`,
-    )
-  }
+  const variable =
+    (await readBackVariableMetadata(
+      repository,
+      variableName,
+      execRunner,
+      normalizedEnvironmentName,
+    )) ?? buildFallbackVariableMetadata(variableName, value, existing)
 
   return {
     created: !existing,
@@ -682,21 +814,34 @@ export async function listEnvironmentSecrets(
   repository: string,
   environmentName: string,
   options?: {
-    execRunner?: ExecRunner
+    execRunner?: ExecRunnerWithOptions
+    signal?: AbortSignal
     status?: GhAuthStatus
   },
 ): Promise<GhActionsSecret[]> {
-  const execRunner = options?.execRunner ?? defaultExecRunner
-  const status = options?.status ?? (await getGhAuthStatus(execRunner))
-
-  assertGhReady(status)
-  parseRepository(repository)
-
-  return listSecretsInternal(
-    repository,
-    execRunner,
-    normalizeEnvironmentName(environmentName),
+  const signal = options?.signal ?? getCurrentRequestSignal()
+  const execRunner = withExecSignal(
+    options?.execRunner ?? defaultExecRunner,
+    signal,
   )
+  try {
+    const status = options?.status ?? (await getGhAuthStatus(execRunner))
+
+    assertGhReady(status)
+    parseRepository(repository)
+
+    return await listSecretsInternal(
+      repository,
+      execRunner,
+      normalizeEnvironmentName(environmentName),
+    )
+  } catch (error) {
+    return resolveAbortedReadRequestFallback({
+      error,
+      fallback: [],
+      signal,
+    })
+  }
 }
 
 export async function upsertEnvironmentSecret(

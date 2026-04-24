@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '#/components/ui/sidebar'
+import { APP_MONOGRAM, APP_NAME } from '#/lib/product'
 import { useAppPreferences } from './app-settings-provider'
 
 const workspaceLinks = [
@@ -43,10 +44,10 @@ export function AppSidebar() {
               className="rounded-2xl bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground"
             >
               <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-                GH
+                {APP_MONOGRAM}
               </div>
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-medium">GH VarDeck</span>
+                <span className="truncate font-medium">{APP_NAME}</span>
                 <span className="truncate text-xs text-sidebar-foreground/70">
                   {messages.variables.sidebarSubtitle}
                 </span>

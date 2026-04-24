@@ -2,11 +2,14 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { defaultLocale, resolveLocale, translations } from '../../messages'
 import type { AppLocale } from '../../messages'
+import {
+  LEGACY_LOCALE_STORAGE_KEY,
+  LEGACY_THEME_STORAGE_KEY,
+  LOCALE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+} from '../../lib/product'
 
 export type ThemeMode = 'light' | 'dark'
-
-const THEME_STORAGE_KEY = 'gh-vardeck:theme'
-const LOCALE_STORAGE_KEY = 'gh-vardeck:locale'
 
 type AppSettingsContextValue = {
   locale: AppLocale
@@ -68,16 +71,45 @@ function applyLocale(locale: AppLocale) {
   root.setAttribute('data-locale', locale)
 }
 
+function migrateStoredPreference({
+  legacyKey,
+  nextKey,
+}: {
+  legacyKey: string
+  nextKey: string
+}) {
+  const nextValue = window.localStorage.getItem(nextKey)
+
+  if (nextValue !== null) {
+    return nextValue
+  }
+
+  const legacyValue = window.localStorage.getItem(legacyKey)
+
+  if (legacyValue !== null) {
+    window.localStorage.setItem(nextKey, legacyValue)
+    window.localStorage.removeItem(legacyKey)
+  }
+
+  return legacyValue
+}
+
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<AppLocale>(defaultLocale)
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light')
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+    const storedTheme = migrateStoredPreference({
+      legacyKey: LEGACY_THEME_STORAGE_KEY,
+      nextKey: THEME_STORAGE_KEY,
+    })
     const initialTheme = normalizeStoredTheme(storedTheme)
 
-    const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    const storedLocale = migrateStoredPreference({
+      legacyKey: LEGACY_LOCALE_STORAGE_KEY,
+      nextKey: LOCALE_STORAGE_KEY,
+    })
     const initialLocale = resolveLocale(
       storedLocale ?? window.navigator.language,
     )
@@ -92,12 +124,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   function setThemeMode(mode: ThemeMode) {
     setThemeModeState(mode)
     window.localStorage.setItem(THEME_STORAGE_KEY, mode)
+    window.localStorage.removeItem(LEGACY_THEME_STORAGE_KEY)
     setResolvedTheme(applyThemeMode(mode))
   }
 
   function setLocale(localeValue: AppLocale) {
     setLocaleState(localeValue)
     window.localStorage.setItem(LOCALE_STORAGE_KEY, localeValue)
+    window.localStorage.removeItem(LEGACY_LOCALE_STORAGE_KEY)
     applyLocale(localeValue)
   }
 
