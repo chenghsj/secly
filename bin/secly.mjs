@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const currentFile = fileURLToPath(import.meta.url)
-const binDir = dirname(currentFile)
+const launcherFile = realpathSync(fileURLToPath(import.meta.url))
+const binDir = dirname(launcherFile)
 const bundledEntrypoint = resolve(binDir, '../src/cli/run-cli.js')
 const sourceEntrypoint = resolve(binDir, '../src/cli/run-cli.ts')
 
