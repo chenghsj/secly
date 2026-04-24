@@ -26,6 +26,8 @@ describe('VariablesEntriesPanelContainer', () => {
           onDeleteSelected: vi.fn(),
           onRequestDeleteEntry: vi.fn(),
           onSearchChange: vi.fn(),
+          onScopeChange: vi.fn(),
+          onScopePrefetch: vi.fn(),
           onSortChange: vi.fn(),
           onStartCreateEntry,
           onStartEditEntry: vi.fn(),

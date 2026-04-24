@@ -85,6 +85,12 @@ type ScopeSettingKind = 'variables' | 'secrets'
 const scopeTargetLevels: ScopeTargetLevel[] = ['repository', 'environment']
 const scopeSettingKinds: ScopeSettingKind[] = ['variables', 'secrets']
 
+const scopeToggleGroupClassName =
+  'inline-grid! w-fit! max-w-full! grid-flow-col auto-cols-max rounded-lg border border-border/70 bg-muted/45 p-0.5 shadow-inner shadow-black/5 dark:border-white/10 dark:bg-black/10 dark:shadow-black/20'
+
+const scopeToggleItemClassName =
+  'h-8 min-w-20 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-muted-foreground shadow-none transition-[color,background-color,border-color,box-shadow] hover:border-border/50 hover:bg-background/75 hover:text-foreground data-pressed:border-border data-pressed:bg-card data-pressed:text-foreground data-pressed:shadow-sm dark:text-foreground/70 dark:hover:border-white/10 dark:hover:bg-white/[0.06] dark:hover:text-foreground dark:data-pressed:border-white/12 dark:data-pressed:bg-card dark:data-pressed:text-foreground'
+
 function getScopeTargetLevel(scope: SettingsScope): ScopeTargetLevel {
   return isEnvironmentScope(scope) ? 'environment' : 'repository'
 }
@@ -114,6 +120,7 @@ export function VariablesTargetSelectField({
   error,
   items,
   label,
+  loading = false,
   placeholder,
   searchPlaceholder,
   value,
@@ -124,6 +131,7 @@ export function VariablesTargetSelectField({
   error: string | null
   items: SearchableSelectItem[]
   label: string
+  loading?: boolean
   placeholder: string
   searchPlaceholder: string
   value: string
@@ -137,6 +145,7 @@ export function VariablesTargetSelectField({
         disabled={disabled}
         emptyMessage={emptyMessage}
         items={items}
+        loading={loading}
         placeholder={placeholder}
         searchPlaceholder={searchPlaceholder}
         value={value}
@@ -164,12 +173,90 @@ export function VariablesScopeField({
   onScopeChange: (nextScope: SettingsScope) => void
   variablesMessages: VariablesMessages
 }) {
-  const activeTargetLevel = getScopeTargetLevel(activeScope)
   const activeSettingKind = getScopeSettingKind(activeScope)
+  const activeTargetLevel = getScopeTargetLevel(activeScope)
   const targetLevelLabels: Record<ScopeTargetLevel, string> = {
     environment: variablesMessages.environmentLabel,
     repository: variablesMessages.repositoryLabel,
   }
+
+  function requestScopePrefetch(nextScope: SettingsScope) {
+    if (!disabled && nextScope !== activeScope) {
+      onScopePrefetch?.(nextScope)
+    }
+  }
+
+  function requestScopeChange(nextScope: SettingsScope) {
+    if (!disabled && nextScope !== activeScope) {
+      onScopeChange(nextScope)
+    }
+  }
+
+  return (
+    <FieldGroup label={label} labelId={labelId}>
+      <ToggleGroup
+        data-testid="scope-target-level-group"
+        aria-label={variablesMessages.scopeTargetLabel}
+        className={scopeToggleGroupClassName}
+        spacing={1}
+        size="lg"
+        type="single"
+        value={activeTargetLevel}
+        variant="default"
+        onValueChange={(nextTargetLevel) => {
+          if (!nextTargetLevel) {
+            return
+          }
+
+          requestScopeChange(
+            resolveScopeFromDimensions(
+              nextTargetLevel as ScopeTargetLevel,
+              activeSettingKind,
+            ),
+          )
+        }}
+      >
+        {scopeTargetLevels.map((nextTargetLevel) => {
+          const nextScope = resolveScopeFromDimensions(
+            nextTargetLevel,
+            activeSettingKind,
+          )
+
+          return (
+            <ToggleGroupItem
+              key={nextTargetLevel}
+              aria-label={targetLevelLabels[nextTargetLevel]}
+              className={scopeToggleItemClassName}
+              disabled={disabled}
+              value={nextTargetLevel}
+              onFocus={() => requestScopePrefetch(nextScope)}
+              onMouseEnter={() => requestScopePrefetch(nextScope)}
+              onPointerDown={() => requestScopePrefetch(nextScope)}
+            >
+              {targetLevelLabels[nextTargetLevel]}
+            </ToggleGroupItem>
+          )
+        })}
+      </ToggleGroup>
+    </FieldGroup>
+  )
+}
+
+export function VariablesScopeSettingKindTabs({
+  activeScope,
+  disabled,
+  onScopePrefetch,
+  onScopeChange,
+  variablesMessages,
+}: {
+  activeScope: SettingsScope
+  disabled: boolean
+  onScopePrefetch?: (nextScope: SettingsScope) => void
+  onScopeChange: (nextScope: SettingsScope) => void
+  variablesMessages: VariablesMessages
+}) {
+  const activeTargetLevel = getScopeTargetLevel(activeScope)
+  const activeSettingKind = getScopeSettingKind(activeScope)
   const settingKindLabels: Record<ScopeSettingKind, string> = {
     secrets: variablesMessages.scopes.repositorySecrets.entryTitle,
     variables: variablesMessages.scopes.repositoryVariables.entryTitle,
@@ -188,111 +275,50 @@ export function VariablesScopeField({
   }
 
   return (
-    <FieldGroup label={label} labelId={labelId}>
-      <div aria-labelledby={labelId} className="grid gap-2">
-        <div className="grid gap-1">
-          <p className="text-[11px] font-medium leading-none text-muted-foreground">
-            {variablesMessages.scopeTargetLabel}
-          </p>
+    <ToggleGroup
+      data-testid="scope-setting-kind-group"
+      aria-label={variablesMessages.scopeContentLabel}
+      className={scopeToggleGroupClassName}
+      spacing={1}
+      size="lg"
+      type="single"
+      value={activeSettingKind}
+      variant="default"
+      onValueChange={(nextSettingKind) => {
+        if (!nextSettingKind) {
+          return
+        }
 
-          <ToggleGroup
-            data-testid="scope-target-level-group"
-            aria-label={variablesMessages.scopeTargetLabel}
-            className="inline-grid! w-fit! max-w-full! grid-flow-col auto-cols-max rounded-lg bg-muted/25 p-0.5"
-            spacing={1}
-            size="lg"
-            type="single"
-            value={activeTargetLevel}
-            variant="default"
-            onValueChange={(nextTargetLevel) => {
-              if (!nextTargetLevel) {
-                return
-              }
+        requestScopeChange(
+          resolveScopeFromDimensions(
+            activeTargetLevel,
+            nextSettingKind as ScopeSettingKind,
+          ),
+        )
+      }}
+    >
+      {scopeSettingKinds.map((nextSettingKind) => {
+        const nextScope = resolveScopeFromDimensions(
+          activeTargetLevel,
+          nextSettingKind,
+        )
 
-              requestScopeChange(
-                resolveScopeFromDimensions(
-                  nextTargetLevel as ScopeTargetLevel,
-                  activeSettingKind,
-                ),
-              )
-            }}
+        return (
+          <ToggleGroupItem
+            key={nextSettingKind}
+            aria-label={settingKindLabels[nextSettingKind]}
+            className={scopeToggleItemClassName}
+            disabled={disabled}
+            value={nextSettingKind}
+            onFocus={() => requestScopePrefetch(nextScope)}
+            onMouseEnter={() => requestScopePrefetch(nextScope)}
+            onPointerDown={() => requestScopePrefetch(nextScope)}
           >
-            {scopeTargetLevels.map((nextTargetLevel) => {
-              const nextScope = resolveScopeFromDimensions(
-                nextTargetLevel,
-                activeSettingKind,
-              )
-
-              return (
-                <ToggleGroupItem
-                  key={nextTargetLevel}
-                  aria-label={targetLevelLabels[nextTargetLevel]}
-                  className="h-8 min-w-20 rounded-md border-none bg-transparent px-2.5 text-sm text-foreground/65 shadow-none hover:bg-background/70 hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm"
-                  disabled={disabled}
-                  value={nextTargetLevel}
-                  onFocus={() => requestScopePrefetch(nextScope)}
-                  onMouseEnter={() => requestScopePrefetch(nextScope)}
-                  onPointerDown={() => requestScopePrefetch(nextScope)}
-                >
-                  {targetLevelLabels[nextTargetLevel]}
-                </ToggleGroupItem>
-              )
-            })}
-          </ToggleGroup>
-        </div>
-
-        <div className="grid gap-1">
-          <p className="text-[11px] font-medium leading-none text-muted-foreground">
-            {variablesMessages.scopeContentLabel}
-          </p>
-
-          <ToggleGroup
-            data-testid="scope-setting-kind-group"
-            aria-label={variablesMessages.scopeContentLabel}
-            className="inline-grid! w-fit! max-w-full! grid-flow-col auto-cols-max rounded-lg bg-muted/25 p-0.5"
-            spacing={1}
-            size="lg"
-            type="single"
-            value={activeSettingKind}
-            variant="default"
-            onValueChange={(nextSettingKind) => {
-              if (!nextSettingKind) {
-                return
-              }
-
-              requestScopeChange(
-                resolveScopeFromDimensions(
-                  activeTargetLevel,
-                  nextSettingKind as ScopeSettingKind,
-                ),
-              )
-            }}
-          >
-            {scopeSettingKinds.map((nextSettingKind) => {
-              const nextScope = resolveScopeFromDimensions(
-                activeTargetLevel,
-                nextSettingKind,
-              )
-
-              return (
-                <ToggleGroupItem
-                  key={nextSettingKind}
-                  aria-label={settingKindLabels[nextSettingKind]}
-                  className="h-8 min-w-20 rounded-md border-none bg-transparent px-2.5 text-sm text-foreground/65 shadow-none hover:bg-background/70 hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm"
-                  disabled={disabled}
-                  value={nextSettingKind}
-                  onFocus={() => requestScopePrefetch(nextScope)}
-                  onMouseEnter={() => requestScopePrefetch(nextScope)}
-                  onPointerDown={() => requestScopePrefetch(nextScope)}
-                >
-                  {settingKindLabels[nextSettingKind]}
-                </ToggleGroupItem>
-              )
-            })}
-          </ToggleGroup>
-        </div>
-      </div>
-    </FieldGroup>
+            {settingKindLabels[nextSettingKind]}
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
   )
 }
 
@@ -384,7 +410,8 @@ export function VariablesEnvironmentSection({
   status: VariablesTargetPanelStatusProps
   variablesMessages: VariablesMessages
 }) {
-  const showsEmptyState = environment.environments.length === 0
+  const showsEmptyState =
+    environment.environments.length === 0 && !status.isRefreshingEnvironments
   const showsAdminAccessDescription =
     lacksEnvironmentAdminAccess && !showsEmptyState
 
@@ -398,6 +425,7 @@ export function VariablesEnvironmentSection({
             error={environment.error}
             items={environment.options}
             label={variablesMessages.environmentLabel}
+            loading={status.isRefreshingEnvironments}
             placeholder={variablesMessages.environmentLabel}
             searchPlaceholder={variablesMessages.environmentSearchPlaceholder}
             value={environment.selected}

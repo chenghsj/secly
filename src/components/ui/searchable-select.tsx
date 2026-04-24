@@ -1,6 +1,11 @@
 import * as React from 'react'
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox'
-import { CheckIcon, ChevronDownIcon, SearchIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  Loader2Icon,
+  SearchIcon,
+} from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 
@@ -30,6 +35,7 @@ type SearchableSelectProps = {
   disabled?: boolean
   emptyMessage: string
   items: SearchableSelectItem[]
+  loading?: boolean
   onValueChange: (value: string) => void
   placeholder: string
   searchPlaceholder: string
@@ -42,6 +48,7 @@ function SearchableSelect({
   disabled = false,
   emptyMessage,
   items,
+  loading = false,
   onValueChange,
   placeholder,
   searchPlaceholder,
@@ -103,6 +110,7 @@ function SearchableSelect({
     >
       <ComboboxPrimitive.Trigger
         aria-label={ariaLabel}
+        aria-busy={loading ? 'true' : undefined}
         className={cn(
           "flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           className,
@@ -123,7 +131,11 @@ function SearchableSelect({
             }
           </ComboboxPrimitive.Value>
         </span>
-        <ChevronDownIcon className="size-4 text-muted-foreground" />
+        {loading ? (
+          <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+        ) : (
+          <ChevronDownIcon className="size-4 text-muted-foreground" />
+        )}
       </ComboboxPrimitive.Trigger>
 
       <ComboboxPrimitive.Portal>

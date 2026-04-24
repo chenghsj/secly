@@ -1,12 +1,6 @@
 import { PencilLineIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { Button } from '#/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '#/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Empty,
   EmptyContent,
@@ -44,6 +38,7 @@ import {
   SortableTableHead,
   TableSelectionCheckbox,
 } from './variables-shared'
+import { VariablesScopeSettingKindTabs } from './variables-target-panel-sections'
 
 type ScopeConfig =
   VariablesMessages['scopes'][keyof VariablesMessages['scopes']]
@@ -94,6 +89,8 @@ type VariablesEntriesPanelActionsProps = {
   onDeleteSelected: () => void
   onRequestDeleteEntry: (entryName: string) => void
   onSearchChange: (value: string) => void
+  onScopeChange: (nextScope: SettingsScope) => void
+  onScopePrefetch?: (nextScope: SettingsScope) => void
   onSortChange: (field: VariablesEntrySortField) => void
   onStartCreateEntry: () => void
   onStartEditEntry: (entry: SettingsEntry) => void
@@ -132,10 +129,19 @@ export function VariablesEntriesPanel({
     <Card>
       <CardHeader>
         <CardTitle>{scope.scopeConfig.title}</CardTitle>
-        <CardDescription>{scope.scopeConfig.listDescription}</CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
+        <div className="self-start">
+          <VariablesScopeSettingKindTabs
+            activeScope={scope.activeScope}
+            disabled={false}
+            onScopePrefetch={actions.onScopePrefetch}
+            onScopeChange={actions.onScopeChange}
+            variablesMessages={variablesMessages}
+          />
+        </div>
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-1">
             <Input

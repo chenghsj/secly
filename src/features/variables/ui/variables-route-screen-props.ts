@@ -38,6 +38,8 @@ export function createVariablesEntriesPanelProps({
   entrySortField,
   environments,
   environmentsRepository,
+  handleScopeChange,
+  handleScopePrefetch,
   filteredEntries,
   hasLoadedCurrentEntries,
   hasPartiallySelectedEntries,
@@ -77,6 +79,8 @@ export function createVariablesEntriesPanelProps({
   entrySortField: VariablesEntrySortField
   environments: VariablesRouteScreenContainerProps['entriesPanel']['environments']
   environmentsRepository: string
+  handleScopeChange: (nextScope: SettingsScope) => Promise<void>
+  handleScopePrefetch: (nextScope: SettingsScope) => Promise<void>
   filteredEntries: VariablesRouteScreenContainerProps['entriesPanel']['filteredEntries']
   hasLoadedCurrentEntries: boolean
   hasPartiallySelectedEntries: boolean
@@ -118,6 +122,16 @@ export function createVariablesEntriesPanelProps({
       },
       onSearchChange: (value: string) => {
         void setEntrySearchQuery(value)
+      },
+      onScopeChange: (nextScope: SettingsScope) => {
+        if (nextScope === activeScope) {
+          return
+        }
+
+        void handleScopeChange(nextScope).catch(() => undefined)
+      },
+      onScopePrefetch: (nextScope: SettingsScope) => {
+        void handleScopePrefetch(nextScope)
       },
       onSortChange: (field: VariablesEntrySortField) => {
         void setEntrySort(field)

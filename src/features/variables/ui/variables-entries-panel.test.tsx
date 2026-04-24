@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { afterEach as afterEachTest, describe, expect, it, vi } from 'vitest'
 import { translations } from '#/messages'
 import { VariablesEntriesPanel } from './variables-entries-panel'
@@ -11,6 +17,13 @@ afterEachTest(() => {
   cleanup()
 })
 
+function getScopeButton(name: string) {
+  return within(screen.getByTestId('scope-setting-kind-group')).getByRole(
+    'button',
+    { name },
+  )
+}
+
 function createProps() {
   return {
     actions: {
@@ -18,6 +31,8 @@ function createProps() {
       onDeleteSelected: vi.fn(),
       onRequestDeleteEntry: vi.fn(),
       onSearchChange: vi.fn(),
+      onScopeChange: vi.fn(),
+      onScopePrefetch: vi.fn(),
       onSortChange: vi.fn(),
       onStartCreateEntry: vi.fn(),
       onStartEditEntry: vi.fn(),
@@ -88,6 +103,49 @@ function createProps() {
 }
 
 describe('VariablesEntriesPanel', () => {
+  it('shows the setting-type scope toggle in the lower panel with the active selection', () => {
+    render(<VariablesEntriesPanel {...createProps()} />)
+
+    const settingKindGroup = screen.getByTestId('scope-setting-kind-group')
+
+    expect(settingKindGroup.getAttribute('aria-label')).toBe(
+      variablesMessages.scopeContentLabel,
+    )
+    expect(
+      getScopeButton(
+        variablesMessages.scopes.repositoryVariables.entryTitle,
+      ).getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+
+  it('prefetches scope data when hovering an inactive setting-type tab', () => {
+    const props = createProps()
+
+    render(<VariablesEntriesPanel {...props} />)
+
+    fireEvent.mouseEnter(
+      getScopeButton(variablesMessages.scopes.repositorySecrets.entryTitle),
+    )
+
+    expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
+      'repository-secrets',
+    )
+  })
+
+  it('switches to secrets when clicking the setting-type secrets toggle', () => {
+    const props = createProps()
+
+    render(<VariablesEntriesPanel {...props} />)
+
+    fireEvent.click(
+      getScopeButton(variablesMessages.scopes.repositorySecrets.entryTitle),
+    )
+
+    expect(props.actions.onScopeChange).toHaveBeenCalledWith(
+      'repository-secrets',
+    )
+  })
+
   it('shows a lightweight busy state instead of table skeletons before current entries load', () => {
     const props = createProps()
     props.listState.currentEntries = []

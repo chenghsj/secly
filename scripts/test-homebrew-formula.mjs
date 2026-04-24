@@ -125,6 +125,16 @@ runCommand(process.execPath, [
     formulaHomepage,
 ])
 
+const generatedFormula = readFileSync(formulaPath, 'utf8')
+
+if (!generatedFormula.includes('secly uninstall --force')) {
+    throw new Error('Generated Homebrew formula is missing Secly cleanup guidance.')
+}
+
+if (!generatedFormula.includes('brew uninstall secly')) {
+    throw new Error('Generated Homebrew formula is missing Homebrew uninstall guidance.')
+}
+
 const { tapFormulaPath, tapRoot } = createTemporaryTap()
 let shouldUninstall = false
 

@@ -94,6 +94,16 @@ export function resolvePreferredEnvironmentName({
   return environments[0]?.name ?? ''
 }
 
+export function shouldPreserveSelectedEnvironmentOnScopeSwitch({
+  nextScope,
+  selectedEnvironment,
+}: {
+  nextScope: SettingsScope
+  selectedEnvironment: string
+}) {
+  return isEnvironmentScope(nextScope) && Boolean(selectedEnvironment)
+}
+
 export function formatMessage(
   template: string,
   values: Record<string, number | string>,

@@ -93,8 +93,11 @@ brew upgrade secly
 ## Uninstall
 
 \`\`\`bash
+secly uninstall --force
 brew uninstall secly
 \`\`\`
+
+\`brew uninstall secly\` only removes the Homebrew-managed files. Run \`secly uninstall --force\` first to remove Secly's local runtime data under your home directory.
 
 ## Maintainers
 

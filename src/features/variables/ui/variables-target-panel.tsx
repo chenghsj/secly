@@ -4,7 +4,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '#/components/ui/card'
@@ -49,11 +48,6 @@ export function VariablesTargetPanel({
     <Card>
       <CardHeader>
         <CardTitle>{variablesMessages.targetTitle}</CardTitle>
-        <CardDescription>
-          {isEnvironmentScope(scope.activeScope)
-            ? variablesMessages.targetDescriptionEnvironment
-            : variablesMessages.targetDescriptionRepository}
-        </CardDescription>
         <CardAction>
           <Button
             type="button"

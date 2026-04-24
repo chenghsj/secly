@@ -74,6 +74,14 @@ const outputPath = args.get('output')
     ? resolve(repoRoot, args.get('output'))
     : formulaOutputPath
 
+const uninstallGuidance = [
+    'Before removing the Homebrew formula, run:',
+    '  secly uninstall --force',
+    '',
+    'Then remove the formula itself:',
+    '  brew uninstall secly',
+].join('\n')
+
 const formula = [
     'class Secly < Formula',
     '  desc "Standalone local UI for managing GitHub repository variables"',
@@ -92,6 +100,14 @@ const formula = [
     '      exec /usr/bin/env node "#{libexec}/bin/secly.mjs" "$@"',
     '    EOS',
     '    chmod 0755, bin/"secly"',
+    '  end',
+    '',
+    '  def caveats',
+    '    <<~EOS',
+    ...uninstallGuidance
+        .split('\n')
+        .map((line) => (line.length > 0 ? `      ${line}` : '')),
+    '    EOS',
     '  end',
     '',
     '  test do',

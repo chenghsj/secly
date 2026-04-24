@@ -34,9 +34,9 @@ import {
 import {
   createGlobalSearchResults,
   formatMessage,
-  getEnvironmentEntryCount,
   getScopeConfig,
   isEnvironmentScope,
+  shouldPreserveSelectedEnvironmentOnScopeSwitch,
 } from '#/features/variables/models/variables-helpers'
 import { hasLoadedEntriesForScope } from '#/features/variables/models/variables-page-derivations'
 
@@ -1219,13 +1219,10 @@ export function useVariablesOrchestration({
 
   async function applyScopeChange(nextScope: SettingsScope) {
     const preserveEnvironmentOnScopeSwitch =
-      !isEnvironmentScope(nextScope) ||
-      !selectedEnvironment ||
-      environments.some(
-        (environment) =>
-          environment.name === selectedEnvironment &&
-          getEnvironmentEntryCount(environment, nextScope) > 0,
-      )
+      shouldPreserveSelectedEnvironmentOnScopeSwitch({
+        nextScope,
+        selectedEnvironment,
+      })
 
     await applyScopeViewChange(
       {

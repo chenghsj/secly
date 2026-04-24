@@ -45,15 +45,18 @@ vi.mock('#/components/ui/searchable-select', () => ({
     ariaLabel,
     disabled = false,
     items = [],
+    loading = false,
   }: {
     ariaLabel: string
     disabled?: boolean
     items?: unknown[]
+    loading?: boolean
   }) => (
     <div>
       <button
         type="button"
         aria-label={ariaLabel}
+        data-busy={loading ? 'true' : undefined}
         disabled={disabled}
         onClick={() => searchableSelectClickSpy(ariaLabel)}
       >
@@ -101,7 +104,7 @@ afterEachTest(() => {
   cleanup()
 })
 
-function createProps() {
+function createProps(): Parameters<typeof VariablesTargetPanel>[0] {
   return {
     actions: {
       onDeleteEnvironment: vi.fn(),
@@ -146,11 +149,10 @@ function createProps() {
 }
 
 describe('VariablesTargetPanel', () => {
-  it('exposes separate target-level and setting-type toggle groups with the active selection', () => {
+  it('shows only the target-level scope toggle with the active selection', () => {
     render(<VariablesTargetPanel {...createProps()} />)
 
     const targetLevelGroup = screen.getByTestId('scope-target-level-group')
-    const settingKindGroup = screen.getByTestId('scope-setting-kind-group')
 
     expect(targetLevelGroup.getAttribute('aria-label')).toBe(
       variablesMessages.scopeTargetLabel,
@@ -161,15 +163,8 @@ describe('VariablesTargetPanel', () => {
         variablesMessages.environmentLabel,
       ).getAttribute('aria-pressed'),
     ).toBe('true')
-    expect(settingKindGroup.getAttribute('aria-label')).toBe(
-      variablesMessages.scopeContentLabel,
-    )
-    expect(
-      getScopeButton(
-        'scope-setting-kind-group',
-        variablesMessages.scopes.repositorySecrets.entryTitle,
-      ).getAttribute('aria-pressed'),
-    ).toBe('true')
+    expect(screen.queryByText(variablesMessages.scopeTargetLabel)).toBeNull()
+    expect(screen.queryByTestId('scope-setting-kind-group')).toBeNull()
   })
 
   it('does not render scope helper copy', () => {
@@ -198,8 +193,11 @@ describe('VariablesTargetPanel', () => {
     const scopeTargetGroup = screen.getByTestId('scope-target-level-group')
 
     expect(repositorySelect).toBeDefined()
+    if (!repositorySelect) {
+      throw new Error('Expected repository select button to exist')
+    }
     expect(
-      repositorySelect?.compareDocumentPosition(scopeTargetGroup) &
+      repositorySelect.compareDocumentPosition(scopeTargetGroup) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0)
   })
@@ -289,23 +287,6 @@ describe('VariablesTargetPanel', () => {
     )
   })
 
-  it('prefetches scope data when focusing an inactive setting-type tab', () => {
-    const props = createProps()
-
-    render(<VariablesTargetPanel {...props} />)
-
-    fireEvent.focus(
-      getScopeButton(
-        'scope-setting-kind-group',
-        variablesMessages.scopes.repositoryVariables.entryTitle,
-      ),
-    )
-
-    expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
-      'environment-variables',
-    )
-  })
-
   it('prefetches scope data on pointer down before switching target levels', () => {
     const props = createProps()
 
@@ -364,24 +345,6 @@ describe('VariablesTargetPanel', () => {
     )
   })
 
-  it('switches to secrets when clicking the setting-type secrets toggle', () => {
-    const props = createProps()
-    props.scope.activeScope = 'repository-variables'
-
-    render(<VariablesTargetPanel {...props} />)
-
-    fireEvent.click(
-      getScopeButton(
-        'scope-setting-kind-group',
-        variablesMessages.scopes.repositorySecrets.entryTitle,
-      ),
-    )
-
-    expect(props.actions.onScopeChange).toHaveBeenCalledWith(
-      'repository-secrets',
-    )
-  })
-
   it('keeps the environment selector enabled while environments refresh', () => {
     const props = createProps()
     props.status.isRefreshingEnvironments = true
@@ -393,6 +356,39 @@ describe('VariablesTargetPanel', () => {
         'disabled',
       ),
     ).toBe(false)
+    expect(
+      getSelectButton(variablesMessages.environmentLabel)?.getAttribute(
+        'data-busy',
+      ),
+    ).toBe('true')
+  })
+
+  it('shows the environment selector as busy even when it has no options yet', () => {
+    const props = createProps()
+    props.environment.options = []
+    props.status.isRefreshingEnvironments = true
+
+    render(<VariablesTargetPanel {...props} />)
+
+    const environmentButton = getSelectButton(
+      variablesMessages.environmentLabel,
+    )
+
+    expect(environmentButton).toBeDefined()
+    expect(environmentButton?.hasAttribute('disabled')).toBe(true)
+    expect(environmentButton?.getAttribute('data-busy')).toBe('true')
+  })
+
+  it('does not show the no-environments empty state while environments refresh', () => {
+    const props = createProps()
+    props.environment.environments = []
+    props.environment.options = []
+    props.environment.selected = ''
+    props.status.isRefreshingEnvironments = true
+
+    render(<VariablesTargetPanel {...props} />)
+
+    expect(screen.queryByText(variablesMessages.noEnvironmentsTitle)).toBeNull()
   })
 
   it('renders the pending environment target layout with skeletons instead of controls', () => {
@@ -401,7 +397,7 @@ describe('VariablesTargetPanel', () => {
 
     const { container } = render(<VariablesTargetPanel {...props} />)
 
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(13)
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(9)
     expect(
       screen.queryByRole('button', { name: variablesMessages.actions.add }),
     ).toBeNull()

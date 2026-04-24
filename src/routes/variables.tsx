@@ -811,6 +811,8 @@ function VariablesPageContent({
     entrySortField,
     environments,
     environmentsRepository,
+    handleScopeChange,
+    handleScopePrefetch,
     filteredEntries,
     hasLoadedCurrentEntries,
     hasPartiallySelectedEntries,
