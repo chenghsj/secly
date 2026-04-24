@@ -66,13 +66,16 @@ function readCommandOutput (command, args, options = {}) {
         stdio: 'pipe',
     })
 
+    const stdout = result.stdout.trim()
+    const stderr = result.stderr.trim()
+
     if (result.status !== 0) {
         throw new Error(
-            `${command} ${args.join(' ')} exited with code ${result.status ?? 1}.`,
+            `${command} ${args.join(' ')} exited with code ${result.status ?? 1}.\nstdout:\n${stdout || '(empty)'}\nstderr:\n${stderr || '(empty)'}`,
         )
     }
 
-    return result.stdout.trim()
+    return stdout
 }
 
 function isSeclyInstalled () {
