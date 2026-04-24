@@ -66,12 +66,13 @@ function readCommandOutput (command, args, options = {}) {
         stdio: 'pipe',
     })
 
-    const stdout = result.stdout.trim()
-    const stderr = result.stderr.trim()
+    const stdout = typeof result.stdout === 'string' ? result.stdout.trim() : ''
+    const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : ''
+    const spawnError = result.error ? `\nspawn error:\n${result.error.message}` : ''
 
-    if (result.status !== 0) {
+    if (result.error || result.status !== 0) {
         throw new Error(
-            `${command} ${args.join(' ')} exited with code ${result.status ?? 1}.\nstdout:\n${stdout || '(empty)'}\nstderr:\n${stderr || '(empty)'}`,
+            `${command} ${args.join(' ')} exited with code ${result.status ?? 1}.${spawnError}\nstdout:\n${stdout || '(empty)'}\nstderr:\n${stderr || '(empty)'}`,
         )
     }
 
