@@ -23,15 +23,8 @@ import {
   APP_SLUG,
   CLI_LINK_DISPLAY,
   CLI_NAME,
-  LEGACY_APP_SLUG,
-  LEGACY_CLI_NAME,
 } from '../lib/product'
-import {
-  ensureAppDirectories,
-  getAppPaths,
-  getLegacyAppPaths,
-  migrateLegacyAppDirectory,
-} from '../server/app-paths'
+import { ensureAppDirectories, getAppPaths } from '../server/app-paths'
 import { GH_AUTH_LOGIN_ARGS, getGhAuthStatus } from '../server/gh-auth.server'
 import {
   deleteRepositoryVariable,
@@ -54,7 +47,6 @@ type InstallState = {
 const currentFile = fileURLToPath(import.meta.url)
 const repoRoot = resolve(dirname(currentFile), '../..')
 const launcherPath = resolve(repoRoot, `bin/${CLI_NAME}.mjs`)
-const legacyLauncherPath = resolve(repoRoot, `bin/${LEGACY_CLI_NAME}.mjs`)
 
 function getCliVersion() {
   try {
@@ -62,9 +54,9 @@ function getCliVersion() {
       readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
     ) as { version?: string }
 
-    return packageJson.version ?? '0.1.0'
+    return packageJson.version ?? '0.0.0-dev'
   } catch {
-    return '0.1.0'
+    return '0.0.0-dev'
   }
 }
 
@@ -110,7 +102,7 @@ function resolveSymlinkTarget(linkPath: string) {
 }
 
 function isManagedLauncherTarget(targetPath: string) {
-  return targetPath === launcherPath || targetPath === legacyLauncherPath
+  return targetPath === launcherPath
 }
 
 function canRemoveCliLink(linkPath: string, installState: InstallState | null) {
@@ -126,63 +118,6 @@ function canRemoveCliLink(linkPath: string, installState: InstallState | null) {
 
   const target = resolveSymlinkTarget(linkPath)
   return isManagedLauncherTarget(target) || installState?.cliLink === linkPath
-}
-
-function migrateLegacyCliLink(paths: AppPaths, legacyPaths: AppPaths) {
-  if (
-    paths.cliLink === legacyPaths.cliLink ||
-    !existsSync(legacyPaths.cliLink)
-  ) {
-    return false
-  }
-
-  const stat = lstatSync(legacyPaths.cliLink)
-
-  if (!stat.isSymbolicLink()) {
-    return false
-  }
-
-  const target = resolveSymlinkTarget(legacyPaths.cliLink)
-
-  if (!isManagedLauncherTarget(target)) {
-    return false
-  }
-
-  mkdirSync(paths.localBinDir, { recursive: true })
-
-  if (existsSync(paths.cliLink)) {
-    rmSync(legacyPaths.cliLink, { force: true })
-    return true
-  }
-
-  if (target === legacyLauncherPath) {
-    rmSync(legacyPaths.cliLink, { force: true })
-    symlinkSync(launcherPath, paths.cliLink)
-    return true
-  }
-
-  renameSync(legacyPaths.cliLink, paths.cliLink)
-  return true
-}
-
-function migrateLegacyLocalState() {
-  const {
-    legacyPaths,
-    migrated: migratedAppData,
-    paths,
-  } = migrateLegacyAppDirectory()
-  const migratedCliLink = migrateLegacyCliLink(paths, legacyPaths)
-  const didMigrate = migratedAppData || migratedCliLink
-
-  if (didMigrate && existsSync(paths.root)) {
-    writeInstallState(paths, existsSync(paths.cliLink) ? paths.cliLink : null)
-  }
-
-  return {
-    didMigrate,
-    legacyPaths,
-    paths,
-  }
 }
 
 function ensureLauncherExecutable() {
@@ -207,10 +142,6 @@ function ensureLocalLink(paths: AppPaths, force = false) {
       if (target === launcherPath) {
         return 'unchanged'
       }
-
-      if (target === legacyLauncherPath) {
-        rmSync(paths.cliLink, { force: true })
-      }
     }
 
     if (existsSync(paths.cliLink) && !force) {
@@ -233,8 +164,6 @@ function ensureDatabasePlaceholder(paths: AppPaths) {
 }
 
 function ensureLocalRuntimeState() {
-  migrateLegacyLocalState()
-
   const paths = ensureAppDirectories()
   ensureDatabasePlaceholder(paths)
   writeInstallState(paths, existsSync(paths.cliLink) ? paths.cliLink : null)
@@ -287,20 +216,19 @@ async function confirmUninstall(paths: AppPaths) {
 
   try {
     const answer = await prompt.question(
-      `Remove ${APP_NAME} local state from ${paths.root}? Type "yes" to continue: `,
+      `Remove ${APP_NAME} local state from ${paths.root}? [y/N] `,
     )
 
-    return answer.trim().toLowerCase() === 'yes'
+    const normalizedAnswer = answer.trim().toLowerCase()
+
+    return normalizedAnswer === 'y' || normalizedAnswer === 'yes'
   } finally {
     prompt.close()
   }
 }
 
 function guardDeletionTarget(targetPath: string) {
-  if (
-    !targetPath.endsWith(`/${APP_SLUG}`) &&
-    !targetPath.endsWith(`/${LEGACY_APP_SLUG}`)
-  ) {
+  if (!targetPath.endsWith(`/${APP_SLUG}`)) {
     throw new Error(`Refusing to remove unexpected directory: ${targetPath}`)
   }
 }
@@ -382,7 +310,6 @@ program
   )
   .option('--no-link', `Skip creating ${CLI_LINK_DISPLAY}.`)
   .action((options: { force?: boolean; link?: boolean }) => {
-    const { didMigrate } = migrateLegacyLocalState()
     const paths = ensureAppDirectories()
     ensureDatabasePlaceholder(paths)
 
@@ -394,9 +321,6 @@ program
 
     writeInstallState(paths, options.link === false ? null : paths.cliLink)
 
-    if (didMigrate) {
-      console.log('Migrated legacy local state to the current Secly paths.')
-    }
     console.log(`${APP_NAME} local state is ready.`)
     console.log(`CLI link: ${linkResult}`)
     printPaths(paths)
@@ -411,18 +335,11 @@ program
   .option('--dry-run', 'Print what would be removed without deleting anything.')
   .action(async (options: { force?: boolean; dryRun?: boolean }) => {
     const paths = getAppPaths()
-    const legacyPaths = getLegacyAppPaths()
     const installState = readInstallState(paths)
     const shouldRemoveLink = canRemoveCliLink(paths.cliLink, installState)
-    const shouldRemoveLegacyLink = canRemoveCliLink(
-      legacyPaths.cliLink,
-      installState,
-    )
     const actions = [
       `${existsSync(paths.root) ? 'remove' : 'keep'} ${paths.root}`,
       `${shouldRemoveLink ? 'remove' : 'keep'} ${paths.cliLink}`,
-      `${existsSync(legacyPaths.root) ? 'remove' : 'keep'} ${legacyPaths.root}`,
-      `${shouldRemoveLegacyLink ? 'remove' : 'keep'} ${legacyPaths.cliLink}`,
       `keep ${repoRoot}`,
     ]
 
@@ -444,18 +361,9 @@ program
       rmSync(paths.cliLink, { force: true })
     }
 
-    if (shouldRemoveLegacyLink) {
-      rmSync(legacyPaths.cliLink, { force: true })
-    }
-
     if (existsSync(paths.root)) {
       guardDeletionTarget(paths.root)
       rmSync(paths.root, { recursive: true, force: true })
-    }
-
-    if (existsSync(legacyPaths.root)) {
-      guardDeletionTarget(legacyPaths.root)
-      rmSync(legacyPaths.root, { recursive: true, force: true })
     }
 
     console.log(`${APP_NAME} local state removed.`)
@@ -466,7 +374,7 @@ program
   .command('status')
   .description(`Inspect ${APP_NAME} install state and tracked local paths.`)
   .action(async () => {
-    const { didMigrate, legacyPaths, paths } = migrateLegacyLocalState()
+    const paths = getAppPaths()
     const installState = readInstallState(paths)
 
     console.log(`Product:       ${APP_NAME}`)
@@ -478,18 +386,6 @@ program
     )
     console.log(`CLI shim:      ${hasCliLink(paths) ? 'present' : 'missing'}`)
     console.log(`Install state: ${installState ? 'present' : 'missing'}`)
-
-    if (existsSync(legacyPaths.root)) {
-      console.log('Legacy data:   present')
-    }
-
-    if (existsSync(legacyPaths.cliLink)) {
-      console.log('Legacy shim:   present')
-    }
-
-    if (didMigrate) {
-      console.log('Migration:     completed')
-    }
 
     if (installState) {
       console.log(`Installed at:  ${installState.installedAt}`)

@@ -41,7 +41,7 @@ function runCommand (command, args) {
 function createStandalonePackageJson () {
     return {
         name: rootPackageJson.name,
-        version: rootPackageJson.version ?? '0.1.0',
+        version: rootPackageJson.version ?? '0.0.0-dev',
         private: false,
         type: 'module',
         description: rootPackageJson.description ?? 'Standalone Secly runtime',

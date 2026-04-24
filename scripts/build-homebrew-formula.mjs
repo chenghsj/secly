@@ -12,7 +12,7 @@ const rootPackageJson = JSON.parse(
     readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
 )
 
-const version = rootPackageJson.version ?? '0.1.0'
+const version = rootPackageJson.version ?? '0.0.0-dev'
 const artifactBaseName = `secly-${version}-standalone`
 const tarballFileName = `${artifactBaseName}.tar.gz`
 const checksumPath = resolve(releaseRoot, `${artifactBaseName}.sha256`)
