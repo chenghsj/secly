@@ -1,8 +1,10 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   readlinkSync,
   rmSync,
   statSync,
@@ -15,8 +17,21 @@ import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { Command } from 'commander'
-import { APP_DESCRIPTION, APP_NAME, APP_SLUG, CLI_NAME } from '../lib/product'
-import { ensureAppDirectories, getAppPaths } from '../server/app-paths'
+import {
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_SLUG,
+  CLI_LINK_DISPLAY,
+  CLI_NAME,
+  LEGACY_APP_SLUG,
+  LEGACY_CLI_NAME,
+} from '../lib/product'
+import {
+  ensureAppDirectories,
+  getAppPaths,
+  getLegacyAppPaths,
+  migrateLegacyAppDirectory,
+} from '../server/app-paths'
 import { GH_AUTH_LOGIN_ARGS, getGhAuthStatus } from '../server/gh-auth.server'
 import {
   deleteRepositoryVariable,
@@ -38,7 +53,20 @@ type InstallState = {
 
 const currentFile = fileURLToPath(import.meta.url)
 const repoRoot = resolve(dirname(currentFile), '../..')
-const launcherPath = resolve(repoRoot, 'bin/ghdeck.mjs')
+const launcherPath = resolve(repoRoot, `bin/${CLI_NAME}.mjs`)
+const legacyLauncherPath = resolve(repoRoot, `bin/${LEGACY_CLI_NAME}.mjs`)
+
+function getCliVersion() {
+  try {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
+    ) as { version?: string }
+
+    return packageJson.version ?? '0.1.0'
+  } catch {
+    return '0.1.0'
+  }
+}
 
 function nowIso() {
   return new Date().toISOString()
@@ -81,22 +109,93 @@ function resolveSymlinkTarget(linkPath: string) {
   return resolve(dirname(linkPath), readlinkSync(linkPath))
 }
 
-function canRemoveCliLink(paths: AppPaths, installState: InstallState | null) {
-  if (!existsSync(paths.cliLink)) {
+function isManagedLauncherTarget(targetPath: string) {
+  return targetPath === launcherPath || targetPath === legacyLauncherPath
+}
+
+function canRemoveCliLink(linkPath: string, installState: InstallState | null) {
+  if (!existsSync(linkPath)) {
     return false
   }
 
-  const stat = lstatSync(paths.cliLink)
+  const stat = lstatSync(linkPath)
 
   if (!stat.isSymbolicLink()) {
     return false
   }
 
-  const target = resolveSymlinkTarget(paths.cliLink)
-  return target === launcherPath || installState?.cliLink === paths.cliLink
+  const target = resolveSymlinkTarget(linkPath)
+  return isManagedLauncherTarget(target) || installState?.cliLink === linkPath
+}
+
+function migrateLegacyCliLink(paths: AppPaths, legacyPaths: AppPaths) {
+  if (
+    paths.cliLink === legacyPaths.cliLink ||
+    !existsSync(legacyPaths.cliLink)
+  ) {
+    return false
+  }
+
+  const stat = lstatSync(legacyPaths.cliLink)
+
+  if (!stat.isSymbolicLink()) {
+    return false
+  }
+
+  const target = resolveSymlinkTarget(legacyPaths.cliLink)
+
+  if (!isManagedLauncherTarget(target)) {
+    return false
+  }
+
+  mkdirSync(paths.localBinDir, { recursive: true })
+
+  if (existsSync(paths.cliLink)) {
+    rmSync(legacyPaths.cliLink, { force: true })
+    return true
+  }
+
+  if (target === legacyLauncherPath) {
+    rmSync(legacyPaths.cliLink, { force: true })
+    symlinkSync(launcherPath, paths.cliLink)
+    return true
+  }
+
+  renameSync(legacyPaths.cliLink, paths.cliLink)
+  return true
+}
+
+function migrateLegacyLocalState() {
+  const {
+    legacyPaths,
+    migrated: migratedAppData,
+    paths,
+  } = migrateLegacyAppDirectory()
+  const migratedCliLink = migrateLegacyCliLink(paths, legacyPaths)
+  const didMigrate = migratedAppData || migratedCliLink
+
+  if (didMigrate && existsSync(paths.root)) {
+    writeInstallState(paths, existsSync(paths.cliLink) ? paths.cliLink : null)
+  }
+
+  return {
+    didMigrate,
+    legacyPaths,
+    paths,
+  }
+}
+
+function ensureLauncherExecutable() {
+  const launcherStat = statSync(launcherPath)
+  const executableMode = launcherStat.mode | 0o100 | 0o010 | 0o001
+
+  if (launcherStat.mode !== executableMode) {
+    chmodSync(launcherPath, executableMode)
+  }
 }
 
 function ensureLocalLink(paths: AppPaths, force = false) {
+  ensureLauncherExecutable()
   mkdirSync(paths.localBinDir, { recursive: true })
 
   if (existsSync(paths.cliLink)) {
@@ -108,11 +207,15 @@ function ensureLocalLink(paths: AppPaths, force = false) {
       if (target === launcherPath) {
         return 'unchanged'
       }
+
+      if (target === legacyLauncherPath) {
+        rmSync(paths.cliLink, { force: true })
+      }
     }
 
-    if (!force) {
+    if (existsSync(paths.cliLink) && !force) {
       throw new Error(
-        `${paths.cliLink} already exists and is not the expected GH VarDeck launcher. Re-run with --force to replace it.`,
+        `${paths.cliLink} already exists and is not the expected ${APP_NAME} launcher. Re-run with --force to replace it.`,
       )
     }
 
@@ -127,6 +230,16 @@ function ensureDatabasePlaceholder(paths: AppPaths) {
   if (!existsSync(paths.databaseFile)) {
     writeFileSync(paths.databaseFile, '', 'utf8')
   }
+}
+
+function ensureLocalRuntimeState() {
+  migrateLegacyLocalState()
+
+  const paths = ensureAppDirectories()
+  ensureDatabasePlaceholder(paths)
+  writeInstallState(paths, existsSync(paths.cliLink) ? paths.cliLink : null)
+
+  return paths
 }
 
 function printPaths(paths: AppPaths) {
@@ -184,7 +297,10 @@ async function confirmUninstall(paths: AppPaths) {
 }
 
 function guardDeletionTarget(targetPath: string) {
-  if (!targetPath.endsWith(`/${APP_SLUG}`)) {
+  if (
+    !targetPath.endsWith(`/${APP_SLUG}`) &&
+    !targetPath.endsWith(`/${LEGACY_APP_SLUG}`)
+  ) {
     throw new Error(`Refusing to remove unexpected directory: ${targetPath}`)
   }
 }
@@ -252,20 +368,21 @@ const program = new Command()
 program
   .name(CLI_NAME)
   .description(APP_DESCRIPTION)
-  .version('0.1.0')
+  .version(getCliVersion())
   .showHelpAfterError()
 
 program
   .command('install')
   .description(
-    'Create GH VarDeck local state and optionally link the CLI shim.',
+    `Create ${APP_NAME} local state and optionally link the CLI shim.`,
   )
   .option(
     '--force',
     'Replace an existing shim if it does not point at this repository.',
   )
-  .option('--no-link', 'Skip creating ~/.local/bin/ghdeck.')
+  .option('--no-link', `Skip creating ${CLI_LINK_DISPLAY}.`)
   .action((options: { force?: boolean; link?: boolean }) => {
+    const { didMigrate } = migrateLegacyLocalState()
     const paths = ensureAppDirectories()
     ensureDatabasePlaceholder(paths)
 
@@ -277,6 +394,9 @@ program
 
     writeInstallState(paths, options.link === false ? null : paths.cliLink)
 
+    if (didMigrate) {
+      console.log('Migrated legacy local state to the current Secly paths.')
+    }
     console.log(`${APP_NAME} local state is ready.`)
     console.log(`CLI link: ${linkResult}`)
     printPaths(paths)
@@ -285,17 +405,24 @@ program
 program
   .command('uninstall')
   .description(
-    'Remove GH VarDeck local state without touching the repository working tree.',
+    `Remove ${APP_NAME} local state without touching the repository working tree.`,
   )
   .option('--force', 'Skip interactive confirmation.')
   .option('--dry-run', 'Print what would be removed without deleting anything.')
   .action(async (options: { force?: boolean; dryRun?: boolean }) => {
     const paths = getAppPaths()
+    const legacyPaths = getLegacyAppPaths()
     const installState = readInstallState(paths)
-    const shouldRemoveLink = canRemoveCliLink(paths, installState)
+    const shouldRemoveLink = canRemoveCliLink(paths.cliLink, installState)
+    const shouldRemoveLegacyLink = canRemoveCliLink(
+      legacyPaths.cliLink,
+      installState,
+    )
     const actions = [
       `${existsSync(paths.root) ? 'remove' : 'keep'} ${paths.root}`,
       `${shouldRemoveLink ? 'remove' : 'keep'} ${paths.cliLink}`,
+      `${existsSync(legacyPaths.root) ? 'remove' : 'keep'} ${legacyPaths.root}`,
+      `${shouldRemoveLegacyLink ? 'remove' : 'keep'} ${legacyPaths.cliLink}`,
       `keep ${repoRoot}`,
     ]
 
@@ -317,9 +444,18 @@ program
       rmSync(paths.cliLink, { force: true })
     }
 
+    if (shouldRemoveLegacyLink) {
+      rmSync(legacyPaths.cliLink, { force: true })
+    }
+
     if (existsSync(paths.root)) {
       guardDeletionTarget(paths.root)
       rmSync(paths.root, { recursive: true, force: true })
+    }
+
+    if (existsSync(legacyPaths.root)) {
+      guardDeletionTarget(legacyPaths.root)
+      rmSync(legacyPaths.root, { recursive: true, force: true })
     }
 
     console.log(`${APP_NAME} local state removed.`)
@@ -328,9 +464,9 @@ program
 
 program
   .command('status')
-  .description('Inspect GH VarDeck install state and tracked local paths.')
+  .description(`Inspect ${APP_NAME} install state and tracked local paths.`)
   .action(async () => {
-    const paths = getAppPaths()
+    const { didMigrate, legacyPaths, paths } = migrateLegacyLocalState()
     const installState = readInstallState(paths)
 
     console.log(`Product:       ${APP_NAME}`)
@@ -343,6 +479,18 @@ program
     console.log(`CLI shim:      ${hasCliLink(paths) ? 'present' : 'missing'}`)
     console.log(`Install state: ${installState ? 'present' : 'missing'}`)
 
+    if (existsSync(legacyPaths.root)) {
+      console.log('Legacy data:   present')
+    }
+
+    if (existsSync(legacyPaths.cliLink)) {
+      console.log('Legacy shim:   present')
+    }
+
+    if (didMigrate) {
+      console.log('Migration:     completed')
+    }
+
     if (installState) {
       console.log(`Installed at:  ${installState.installedAt}`)
       console.log(`Launcher path: ${installState.launcherPath}`)
@@ -353,14 +501,14 @@ program
 
 program
   .command('paths')
-  .description('Print the deterministic local paths used by GH VarDeck.')
+  .description(`Print the deterministic local paths used by ${APP_NAME}.`)
   .action(() => {
     printPaths(getAppPaths())
   })
 
 program
   .command('login')
-  .description('Inspect or start local GitHub CLI login for GH VarDeck.')
+  .description(`Inspect or start local GitHub CLI login for ${APP_NAME}.`)
   .option(
     '--add-account',
     'Start another gh auth login even when one account is already authenticated.',
@@ -380,7 +528,7 @@ program
     }
 
     if (status.authenticated && !options.addAccount) {
-      console.log('GitHub CLI login is already ready for GH VarDeck.')
+      console.log(`GitHub CLI login is already ready for ${APP_NAME}.`)
       return
     }
 
@@ -405,10 +553,10 @@ program
 program
   .command('ui')
   .description(
-    'Launch the GH VarDeck production web UI and open it in your browser.',
+    `Launch the ${APP_NAME} production web UI and open it in your browser.`,
   )
   .option('--host <host>', 'Server host.', DEFAULT_UI_HOST)
-  .option('--port <port>', 'Preferred server port.', String(DEFAULT_UI_PORT))
+  .option('--port <port>', 'Server port.', String(DEFAULT_UI_PORT))
   .option('--no-open', 'Start the UI without opening a browser window.')
   .option('--rebuild', 'Force rebuilding the production UI before serving it.')
   .action(
@@ -427,7 +575,8 @@ program
         throw new Error('Port must be a positive integer.')
       }
 
-      console.log('Starting GH VarDeck UI...')
+      console.log(`Starting ${APP_NAME} UI...`)
+      ensureLocalRuntimeState()
 
       const launch = await launchUi({
         forceBuild: options.rebuild,
@@ -531,4 +680,9 @@ envVarsCommand
     printPlanned('Environment-variable deletion is planned but not wired yet.')
   })
 
-await program.parseAsync(process.argv)
+try {
+  await program.parseAsync(process.argv)
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error))
+  process.exitCode = 1
+}

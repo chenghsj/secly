@@ -1,19 +1,26 @@
 {
-  "name": "gh-vardeck",
+  "name": "secly",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "imports": {
     "#/*": "./src/*"
   },
   "bin": {
-    "ghdeck": "./bin/ghdeck.mjs"
+    "secly": "./bin/secly.mjs"
   },
   "scripts": {
+    "build:formula": "node ./scripts/build-homebrew-formula.mjs",
+    "build:tap": "node ./scripts/build-homebrew-tap.mjs",
+    "build:release": "node ./scripts/build-release.mjs",
+    "build:standalone": "node ./scripts/build-standalone.mjs",
+    "postinstall": "node --import tsx ./src/cli/run-cli.ts install",
     "dev": "vite dev --port 3000",
     "ui": "tsx src/cli/run-cli.ts ui",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:homebrew": "node ./scripts/test-homebrew-formula.mjs",
     "lint": "eslint .",
     "format": "prettier --check .",
     "check": "prettier --check . && eslint .",
@@ -54,6 +61,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "esbuild": "^0.27.7",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
@@ -68,7 +76,7 @@
     "jsdom": "^28.1.0",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "vite": "^8.0.0",
     "vitest": "^3.0.5"
   },

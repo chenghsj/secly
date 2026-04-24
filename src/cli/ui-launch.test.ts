@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  DEFAULT_UI_PORT,
   buildUiUrl,
   findAvailablePort,
   getStaticAssetFilePath,
@@ -18,19 +19,47 @@ import {
 } from './ui-launch'
 
 describe('buildUiUrl', () => {
+  it('uses the product default high port when none is specified', () => {
+    expect(buildUiUrl()).toBe('http://127.0.0.1:43127')
+  })
+
   it('maps 0.0.0.0 to a browser-safe localhost url', () => {
     expect(buildUiUrl('0.0.0.0', 3000)).toBe('http://127.0.0.1:3000')
   })
 })
 
+describe('DEFAULT_UI_PORT', () => {
+  it('starts the production UI on the reserved high port range', () => {
+    expect(DEFAULT_UI_PORT).toBe(43127)
+  })
+})
+
 describe('findAvailablePort', () => {
-  it('returns the first available port', async () => {
+  it('returns the requested port when it is free', async () => {
     const port = await findAvailablePort(3000, {
       host: '127.0.0.1',
-      portCheck: async (_host, candidate) => candidate !== 3002,
+      portInspector: async () => 'free',
     })
 
-    expect(port).toBe(3002)
+    expect(port).toBe(3000)
+  })
+
+  it('fails when the requested port is already occupied', async () => {
+    await expect(
+      findAvailablePort(43127, {
+        host: '127.0.0.1',
+        portInspector: async () => 'occupied',
+      }),
+    ).rejects.toThrow('Port 43127 is already in use.')
+  })
+
+  it('fails when Secly UI is already running on the requested port', async () => {
+    await expect(
+      findAvailablePort(43127, {
+        host: '127.0.0.1',
+        portInspector: async () => 'secly',
+      }),
+    ).rejects.toThrow('Secly UI is already running at http://127.0.0.1:43127.')
   })
 })
 
@@ -42,7 +71,7 @@ describe('resolveNpmCommand', () => {
 
 describe('getUiBuildStatus', () => {
   it('reports missing when the build output is absent', () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), 'ghdeck-ui-build-missing-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-build-missing-'))
 
     try {
       mkdirSync(join(repoRoot, 'src'), { recursive: true })
@@ -61,7 +90,7 @@ describe('getUiBuildStatus', () => {
   })
 
   it('reports stale when a source file is newer than the build output', () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), 'ghdeck-ui-build-stale-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-build-stale-'))
 
     try {
       const sourceDir = join(repoRoot, 'src')
@@ -96,7 +125,7 @@ describe('getUiBuildStatus', () => {
   })
 
   it('reports ready when the build output is newer than the source tree', () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), 'ghdeck-ui-build-ready-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-build-ready-'))
 
     try {
       const sourceDir = join(repoRoot, 'src')
@@ -133,7 +162,7 @@ describe('getUiBuildStatus', () => {
 
 describe('getStaticAssetFilePath', () => {
   it('returns a file path for assets under dist/client', () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), 'ghdeck-ui-static-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-static-'))
     const clientRoot = join(repoRoot, 'dist/client')
     const assetPath = join(clientRoot, 'assets/app.js')
 
@@ -150,7 +179,7 @@ describe('getStaticAssetFilePath', () => {
   })
 
   it('blocks path traversal outside dist/client', () => {
-    const repoRoot = mkdtempSync(join(tmpdir(), 'ghdeck-ui-static-traversal-'))
+    const repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-static-traversal-'))
     const clientRoot = join(repoRoot, 'dist/client')
 
     try {

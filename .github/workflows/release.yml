@@ -1,0 +1,141 @@
+name: Release
+
+# Optional configuration:
+# - Repository variable: HOMEBREW_TAP_REPOSITORY
+#   Defaults to <owner>/homebrew-<repo> when unset.
+# - Repository secret: HOMEBREW_TAP_PUSH_TOKEN
+#   When set, the generated tap scaffold is pushed to the tap repository.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    env:
+      HOMEBREW_TAP_PUSH_TOKEN: ${{ secrets.HOMEBREW_TAP_PUSH_TOKEN }}
+      HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve release metadata
+        id: release_meta
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          package_version="$(node -p "require('./package.json').version")"
+          release_tag="${GITHUB_REF_NAME}"
+          expected_tag="v${package_version}"
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          tap_repository="${HOMEBREW_TAP_REPOSITORY:-${GITHUB_REPOSITORY_OWNER}/homebrew-${repo_name}}"
+
+          if [[ "$release_tag" != "$expected_tag" ]]; then
+            echo "Tag $release_tag does not match package.json version $package_version." >&2
+            exit 1
+          fi
+
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "artifact_base_name=secly-${package_version}-standalone" >> "$GITHUB_OUTPUT"
+          echo "tap_repository=$tap_repository" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run Homebrew smoke test
+        env:
+          SECLY_HOMEBREW_HOMEPAGE: https://github.com/${{ github.repository }}
+        run: npm run test:homebrew
+
+      - name: Publish GitHub release assets
+        env:
+          ARTIFACT_BASE_NAME: ${{ steps.release_meta.outputs.artifact_base_name }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_meta.outputs.release_tag }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          tarball="dist/release/${ARTIFACT_BASE_NAME}.tar.gz"
+          checksum="dist/release/${ARTIFACT_BASE_NAME}.sha256"
+
+          [[ -f "$tarball" ]]
+          [[ -f "$checksum" ]]
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$tarball" "$checksum" --repo "$GITHUB_REPOSITORY" --clobber
+            exit 0
+          fi
+
+          gh release create "$RELEASE_TAG" "$tarball" "$checksum" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --generate-notes
+
+      - name: Build Homebrew tap scaffold
+        env:
+          RELEASE_TAG: ${{ steps.release_meta.outputs.release_tag }}
+          TAP_REPOSITORY: ${{ steps.release_meta.outputs.tap_repository }}
+        run: |
+          npm run build:tap -- \
+            --github-repo "$GITHUB_REPOSITORY" \
+            --release-tag "$RELEASE_TAG" \
+            --tap "$TAP_REPOSITORY" \
+            --homepage "https://github.com/$GITHUB_REPOSITORY"
+
+      - name: Validate generated tap scaffold
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          ruby -c dist/release/homebrew-tap/Formula/secly.rb
+          brew style dist/release/homebrew-tap/Formula/secly.rb
+          ruby -e 'require "yaml"; YAML.load_file("dist/release/homebrew-tap/.github/workflows/validate.yml")'
+
+      - name: Upload tap scaffold artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-tap-${{ steps.release_meta.outputs.release_tag }}
+          path: dist/release/homebrew-tap
+
+      - name: Publish tap repository
+        if: ${{ env.HOMEBREW_TAP_PUSH_TOKEN != '' }}
+        env:
+          RELEASE_TAG: ${{ steps.release_meta.outputs.release_tag }}
+          TAP_REPOSITORY: ${{ steps.release_meta.outputs.tap_repository }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          temp_root="$(mktemp -d)"
+          trap 'rm -rf -- "$temp_root"' EXIT
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_PUSH_TOKEN}@github.com/${TAP_REPOSITORY}.git" "$temp_root/tap"
+          rsync -a --delete --exclude '.git/' dist/release/homebrew-tap/ "$temp_root/tap/"
+
+          cd "$temp_root/tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -z "$(git status --short)" ]]; then
+            echo "No tap changes to publish."
+            exit 0
+          fi
+
+          git add .
+          git commit -m "Release ${RELEASE_TAG}"
+          git push origin HEAD:main

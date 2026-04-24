@@ -7,10 +7,16 @@ import net from 'node:net'
 import { extname, relative, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { pathToFileURL } from 'node:url'
+import { APP_NAME } from '#/lib/product'
 
 export const DEFAULT_UI_HOST = '127.0.0.1'
-export const DEFAULT_UI_PORT = 3000
+export const DEFAULT_UI_PORT = 43127
+
+const SECLY_UI_HEALTH_PATH = '/__secly__/health'
+const SECLY_UI_MARKER_HEADER = 'x-secly-ui'
+const SECLY_UI_MARKER_VALUE = '1'
 
 const STATIC_CONTENT_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -44,11 +50,14 @@ type OpenBrowserRunner = (
   },
 ) => void
 
-type PortCheck = (host: string, port: number) => Promise<boolean>
+type PortStatus = 'free' | 'occupied' | 'secly'
+
+type PortInspector = (host: string, port: number) => Promise<PortStatus>
 
 type UiRuntimePaths = {
   clientRoot: string
   serverEntry: string
+  standaloneMarker: string
   sourceEntries: string[]
 }
 
@@ -89,6 +98,7 @@ function getUiRuntimePaths(repoRoot: string): UiRuntimePaths {
   return {
     clientRoot: resolve(repoRoot, 'dist/client'),
     serverEntry: resolve(repoRoot, 'dist/server/server.js'),
+    standaloneMarker: resolve(repoRoot, '.secly-standalone'),
     sourceEntries: [
       resolve(repoRoot, 'src'),
       resolve(repoRoot, 'public'),
@@ -227,7 +237,10 @@ async function sendFetchResponse(
     return
   }
 
-  await pipeline(Readable.fromWeb(response.body as ReadableStream), reply)
+  await pipeline(
+    Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
+    reply,
+  )
 }
 
 async function sendStaticAsset(
@@ -337,6 +350,14 @@ async function startProductionUiServer(configuration: {
         request.url ?? '/',
         getOrigin(request, configuration.host, configuration.port),
       )
+
+      if (requestUrl.pathname === SECLY_UI_HEALTH_PATH) {
+        reply.statusCode = 204
+        reply.setHeader(SECLY_UI_MARKER_HEADER, SECLY_UI_MARKER_VALUE)
+        reply.end()
+        return
+      }
+
       const staticAssetPath = getStaticAssetFilePath(
         requestUrl.pathname,
         runtimePaths.clientRoot,
@@ -365,7 +386,7 @@ async function startProductionUiServer(configuration: {
 
       const message =
         error instanceof Error ? error.message : 'Unknown UI server error.'
-      reply.end(`GH VarDeck UI server error: ${message}`)
+      reply.end(`${APP_NAME} UI server error: ${message}`)
     }
   })
 
@@ -396,6 +417,34 @@ async function canConnect(host: string, port: number) {
   })
 }
 
+async function isSeclyUiServer(host: string, port: number) {
+  try {
+    const response = await fetch(
+      `${buildUiUrl(host, port)}${SECLY_UI_HEALTH_PATH}`,
+      {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(750),
+      },
+    )
+
+    return (
+      response.headers.get(SECLY_UI_MARKER_HEADER) === SECLY_UI_MARKER_VALUE
+    )
+  } catch {
+    return false
+  }
+}
+
+async function inspectUiPort(host: string, port: number): Promise<PortStatus> {
+  const inUse = await canConnect(host, port)
+
+  if (!inUse) {
+    return 'free'
+  }
+
+  return (await isSeclyUiServer(host, port)) ? 'secly' : 'occupied'
+}
+
 export function resolveNpmCommand(platform = process.platform) {
   return platform === 'win32' ? 'npm.cmd' : 'npm'
 }
@@ -412,6 +461,10 @@ export function getUiBuildStatus(repoRoot: string): UiBuildStatus {
     !existsSync(runtimePaths.serverEntry)
   ) {
     return 'missing'
+  }
+
+  if (existsSync(runtimePaths.standaloneMarker)) {
+    return 'ready'
   }
 
   const buildTime = statSync(runtimePaths.serverEntry).mtimeMs
@@ -488,21 +541,24 @@ export async function findAvailablePort(
   startingPort = DEFAULT_UI_PORT,
   options?: {
     host?: string
-    portCheck?: PortCheck
+    portInspector?: PortInspector
   },
 ) {
   const host = options?.host ?? DEFAULT_UI_HOST
-  const portCheck = options?.portCheck ?? canConnect
+  const portInspector = options?.portInspector ?? inspectUiPort
+  const status = await portInspector(host, startingPort)
 
-  for (let port = startingPort; port < startingPort + 50; port += 1) {
-    const inUse = await portCheck(host, port)
-
-    if (!inUse) {
-      return port
-    }
+  if (status === 'free') {
+    return startingPort
   }
 
-  throw new Error(`Could not find a free port starting at ${startingPort}.`)
+  if (status === 'secly') {
+    throw new Error(
+      `${APP_NAME} UI is already running at ${buildUiUrl(host, startingPort)}.`,
+    )
+  }
+
+  throw new Error(`Port ${startingPort} is already in use.`)
 }
 
 export async function launchUi(
