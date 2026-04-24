@@ -89,7 +89,7 @@ const formula = [
     '    libexec.install Dir["*"]',
     '    (bin/"secly").write <<~EOS',
     '      #!/bin/bash',
-    '      exec "#{Formula["node"].opt_bin}/node" "#{libexec}/bin/secly.mjs" "$@"',
+    '      exec /usr/bin/env node "#{libexec}/bin/secly.mjs" "$@"',
     '    EOS',
     '    chmod 0755, bin/"secly"',
     '  end',
