@@ -19,6 +19,7 @@ import type {
 } from '#/features/variables/domain/variables-types'
 import {
   compareSettingsEntries,
+  getEnvironmentEntryCount,
   isSecretScope,
   resolvePreferredEnvironmentName,
 } from '#/features/variables/models/variables-helpers'
@@ -80,23 +81,25 @@ export function createRepositoryOptions(repositories: GhRepositorySummary[]) {
 }
 
 export function createEnvironmentOptions({
+  activeScope,
   emptyOptionLabel,
   environments,
 }: {
+  activeScope: SettingsScope
   emptyOptionLabel: string
   environments: GhEnvironmentSummary[]
 }): SearchableSelectItem[] {
   const populatedEnvironments = environments.filter(
-    (environment) => environment.variableCount > 0,
+    (environment) => getEnvironmentEntryCount(environment, activeScope) > 0,
   )
   const emptyEnvironments = environments.filter(
-    (environment) => environment.variableCount === 0,
+    (environment) => getEnvironmentEntryCount(environment, activeScope) === 0,
   )
 
   return [...populatedEnvironments, ...emptyEnvironments].map(
     (environment) => ({
       label:
-        environment.variableCount === 0
+        getEnvironmentEntryCount(environment, activeScope) === 0
           ? `${environment.name} ${emptyOptionLabel}`
           : environment.name,
       value: environment.name,

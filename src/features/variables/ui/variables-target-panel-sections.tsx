@@ -10,13 +10,13 @@ import {
   SearchableSelect,
   type SearchableSelectItem,
 } from '#/components/ui/searchable-select'
-import { Tabs, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import type { SettingsScope } from '#/lib/variables-route-search'
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'
 import {
   formatMessage,
-  scopeMessageKeys,
-  scopeTabDisplayOrder,
+  isEnvironmentScope,
+  isSecretScope,
 } from '#/features/variables/models/variables-helpers'
 import {
   ActionSkeletonRow,
@@ -79,6 +79,35 @@ export type VariablesTargetPanelProps = {
   variablesMessages: VariablesMessages
 }
 
+type ScopeTargetLevel = 'repository' | 'environment'
+type ScopeSettingKind = 'variables' | 'secrets'
+
+const scopeTargetLevels: ScopeTargetLevel[] = ['repository', 'environment']
+const scopeSettingKinds: ScopeSettingKind[] = ['variables', 'secrets']
+
+function getScopeTargetLevel(scope: SettingsScope): ScopeTargetLevel {
+  return isEnvironmentScope(scope) ? 'environment' : 'repository'
+}
+
+function getScopeSettingKind(scope: SettingsScope): ScopeSettingKind {
+  return isSecretScope(scope) ? 'secrets' : 'variables'
+}
+
+function resolveScopeFromDimensions(
+  targetLevel: ScopeTargetLevel,
+  settingKind: ScopeSettingKind,
+): SettingsScope {
+  if (targetLevel === 'environment') {
+    return settingKind === 'secrets'
+      ? 'environment-secrets'
+      : 'environment-variables'
+  }
+
+  return settingKind === 'secrets'
+    ? 'repository-secrets'
+    : 'repository-variables'
+}
+
 export function VariablesTargetSelectField({
   disabled,
   emptyMessage,
@@ -135,46 +164,134 @@ export function VariablesScopeField({
   onScopeChange: (nextScope: SettingsScope) => void
   variablesMessages: VariablesMessages
 }) {
+  const activeTargetLevel = getScopeTargetLevel(activeScope)
+  const activeSettingKind = getScopeSettingKind(activeScope)
+  const targetLevelLabels: Record<ScopeTargetLevel, string> = {
+    environment: variablesMessages.environmentLabel,
+    repository: variablesMessages.repositoryLabel,
+  }
+  const settingKindLabels: Record<ScopeSettingKind, string> = {
+    secrets: variablesMessages.scopes.repositorySecrets.entryTitle,
+    variables: variablesMessages.scopes.repositoryVariables.entryTitle,
+  }
+
   function requestScopePrefetch(nextScope: SettingsScope) {
     if (!disabled && nextScope !== activeScope) {
       onScopePrefetch?.(nextScope)
     }
   }
 
+  function requestScopeChange(nextScope: SettingsScope) {
+    if (!disabled && nextScope !== activeScope) {
+      onScopeChange(nextScope)
+    }
+  }
+
   return (
     <FieldGroup label={label} labelId={labelId}>
-      <Tabs
-        value={activeScope}
-        onValueChange={(nextScope) => {
-          if (!disabled) {
-            onScopeChange(nextScope as SettingsScope)
-          }
-        }}
-      >
-        <TabsList
-          aria-labelledby={labelId}
-          className="grid! h-auto! w-full! grid-cols-2 gap-2 rounded-2xl p-1.5 sm:inline-flex! sm:w-fit! sm:gap-1 sm:rounded-full sm:p-0.75"
-        >
-          {scopeTabDisplayOrder.map((nextScope) => {
-            const messageKey = scopeMessageKeys[nextScope]
-            const config = variablesMessages.scopes[messageKey]
+      <div aria-labelledby={labelId} className="grid gap-2">
+        <div className="grid gap-1">
+          <p className="text-[11px] font-medium leading-none text-muted-foreground">
+            {variablesMessages.scopeTargetLabel}
+          </p>
 
-            return (
-              <TabsTrigger
-                key={nextScope}
-                disabled={disabled}
-                value={nextScope}
-                className="h-8 w-full rounded-full px-3 sm:w-auto"
-                onFocus={() => requestScopePrefetch(nextScope)}
-                onMouseEnter={() => requestScopePrefetch(nextScope)}
-                onPointerDown={() => requestScopePrefetch(nextScope)}
-              >
-                {config.tabLabel}
-              </TabsTrigger>
-            )
-          })}
-        </TabsList>
-      </Tabs>
+          <ToggleGroup
+            data-testid="scope-target-level-group"
+            aria-label={variablesMessages.scopeTargetLabel}
+            className="inline-grid! w-fit! max-w-full! grid-flow-col auto-cols-max rounded-lg bg-muted/25 p-0.5"
+            spacing={1}
+            size="lg"
+            type="single"
+            value={activeTargetLevel}
+            variant="default"
+            onValueChange={(nextTargetLevel) => {
+              if (!nextTargetLevel) {
+                return
+              }
+
+              requestScopeChange(
+                resolveScopeFromDimensions(
+                  nextTargetLevel as ScopeTargetLevel,
+                  activeSettingKind,
+                ),
+              )
+            }}
+          >
+            {scopeTargetLevels.map((nextTargetLevel) => {
+              const nextScope = resolveScopeFromDimensions(
+                nextTargetLevel,
+                activeSettingKind,
+              )
+
+              return (
+                <ToggleGroupItem
+                  key={nextTargetLevel}
+                  aria-label={targetLevelLabels[nextTargetLevel]}
+                  className="h-8 min-w-20 rounded-md border-none bg-transparent px-2.5 text-sm text-foreground/65 shadow-none hover:bg-background/70 hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm"
+                  disabled={disabled}
+                  value={nextTargetLevel}
+                  onFocus={() => requestScopePrefetch(nextScope)}
+                  onMouseEnter={() => requestScopePrefetch(nextScope)}
+                  onPointerDown={() => requestScopePrefetch(nextScope)}
+                >
+                  {targetLevelLabels[nextTargetLevel]}
+                </ToggleGroupItem>
+              )
+            })}
+          </ToggleGroup>
+        </div>
+
+        <div className="grid gap-1">
+          <p className="text-[11px] font-medium leading-none text-muted-foreground">
+            {variablesMessages.scopeContentLabel}
+          </p>
+
+          <ToggleGroup
+            data-testid="scope-setting-kind-group"
+            aria-label={variablesMessages.scopeContentLabel}
+            className="inline-grid! w-fit! max-w-full! grid-flow-col auto-cols-max rounded-lg bg-muted/25 p-0.5"
+            spacing={1}
+            size="lg"
+            type="single"
+            value={activeSettingKind}
+            variant="default"
+            onValueChange={(nextSettingKind) => {
+              if (!nextSettingKind) {
+                return
+              }
+
+              requestScopeChange(
+                resolveScopeFromDimensions(
+                  activeTargetLevel,
+                  nextSettingKind as ScopeSettingKind,
+                ),
+              )
+            }}
+          >
+            {scopeSettingKinds.map((nextSettingKind) => {
+              const nextScope = resolveScopeFromDimensions(
+                activeTargetLevel,
+                nextSettingKind,
+              )
+
+              return (
+                <ToggleGroupItem
+                  key={nextSettingKind}
+                  aria-label={settingKindLabels[nextSettingKind]}
+                  className="h-8 min-w-20 rounded-md border-none bg-transparent px-2.5 text-sm text-foreground/65 shadow-none hover:bg-background/70 hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm"
+                  disabled={disabled}
+                  value={nextSettingKind}
+                  onFocus={() => requestScopePrefetch(nextScope)}
+                  onMouseEnter={() => requestScopePrefetch(nextScope)}
+                  onPointerDown={() => requestScopePrefetch(nextScope)}
+                >
+                  {settingKindLabels[nextSettingKind]}
+                </ToggleGroupItem>
+              )
+            })}
+          </ToggleGroup>
+        </div>
+      </div>
     </FieldGroup>
   )
 }

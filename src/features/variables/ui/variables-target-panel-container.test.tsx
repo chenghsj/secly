@@ -40,6 +40,7 @@ describe('VariablesTargetPanelContainer', () => {
             htmlUrl: 'https://github.com/acme/repo/environments/production',
             name: 'production',
             protectionRulesCount: 0,
+            secretCount: 0,
             updatedAt: '2025-01-01T00:00:00.000Z',
             variableCount: 3,
           },
@@ -48,6 +49,7 @@ describe('VariablesTargetPanelContainer', () => {
             htmlUrl: 'https://github.com/acme/repo/environments/preview',
             name: 'preview',
             protectionRulesCount: 0,
+            secretCount: 1,
             updatedAt: '2025-01-01T00:00:00.000Z',
             variableCount: 0,
           },
@@ -93,5 +95,82 @@ describe('VariablesTargetPanelContainer', () => {
       },
     ])
     expect(panelProps.actions.onRefresh).toBe(onRefresh)
+  })
+
+  it('uses secret counts and secret-specific empty labels for environment secrets', () => {
+    const variablesMessages = translations.en.variables
+
+    render(
+      <VariablesTargetPanelContainer
+        actions={{
+          onDeleteEnvironment: vi.fn(),
+          onDoneEnvironment: vi.fn(),
+          onEnvironmentChange: vi.fn(),
+          onOpenEnvironmentCreate: vi.fn(),
+          onRefresh: vi.fn(),
+          onRepositoryChange: vi.fn(),
+          onScopePrefetch: vi.fn(),
+          onScopeChange: vi.fn(),
+          onStartEnvironmentEditing: vi.fn(),
+        }}
+        activeScope="environment-secrets"
+        environmentSelectionError={null}
+        environments={[
+          {
+            createdAt: '2025-01-01T00:00:00.000Z',
+            htmlUrl: 'https://github.com/acme/repo/environments/production',
+            name: 'production',
+            protectionRulesCount: 0,
+            secretCount: 1,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            variableCount: 0,
+          },
+          {
+            createdAt: '2025-01-01T00:00:00.000Z',
+            htmlUrl: 'https://github.com/acme/repo/environments/preview',
+            name: 'preview',
+            protectionRulesCount: 0,
+            secretCount: 0,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            variableCount: 3,
+          },
+        ]}
+        repositoryError={null}
+        repositories={[
+          {
+            id: 1,
+            name: 'repo',
+            nameWithOwner: 'acme/repo',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            viewerPermission: 'ADMIN',
+            visibility: 'private',
+          },
+        ]}
+        selectedEnvironment="production"
+        selectedRepository="acme/repo"
+        status={{
+          isDeletingEnvironment: false,
+          isEnvironmentActionDisabled: false,
+          isEnvironmentEditing: false,
+          isRefreshingEnvironments: false,
+          isRefreshingRepositories: false,
+          isScopeChangeDisabled: false,
+          isTargetRefreshing: false,
+        }}
+        variablesMessages={variablesMessages}
+      />,
+    )
+
+    const panelProps = capturedProps.mock.calls.at(-1)?.[0] as {
+      environment: { options: Array<{ label: string; value: string }> }
+    }
+
+    expect(panelProps.environment.options).toEqual([
+      { label: 'production', value: 'production' },
+      {
+        label: `preview ${variablesMessages.environmentEmptySecretOptionLabel}`,
+        value: 'preview',
+      },
+    ])
   })
 })

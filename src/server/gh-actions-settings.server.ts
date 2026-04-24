@@ -85,6 +85,7 @@ export type GhEnvironmentSummary = {
   htmlUrl: string
   name: string
   protectionRulesCount: number
+  secretCount: number
   updatedAt: string
   variableCount: number
 }
@@ -295,13 +296,20 @@ function buildGhSecretDeleteArgs(
 
 function mapEnvironment(
   environment: z.infer<typeof environmentSchema>,
-  variableCount = 0,
+  {
+    secretCount = 0,
+    variableCount = 0,
+  }: {
+    secretCount?: number
+    variableCount?: number
+  } = {},
 ): GhEnvironmentSummary {
   return {
     createdAt: environment.created_at,
     htmlUrl: environment.html_url,
     name: environment.name,
     protectionRulesCount: environment.protection_rules?.length ?? 0,
+    secretCount,
     updatedAt: environment.updated_at,
     variableCount,
   }
@@ -585,13 +593,15 @@ export async function listRepositoryEnvironments(
 
     const environmentSummaries = await Promise.all(
       environments.environments.map(async (environment) => {
-        const variables = await listVariablesInternal(
-          repository,
-          execRunner,
-          environment.name,
-        )
+        const [variables, secrets] = await Promise.all([
+          listVariablesInternal(repository, execRunner, environment.name),
+          listSecretsInternal(repository, execRunner, environment.name),
+        ])
 
-        return mapEnvironment(environment, variables.length)
+        return mapEnvironment(environment, {
+          secretCount: secrets.length,
+          variableCount: variables.length,
+        })
       }),
     )
 

@@ -38,7 +38,11 @@ export function VariablesTargetPanelContainer({
 }: VariablesTargetPanelContainerProps) {
   const repositoryOptions = createRepositoryOptions(repositories)
   const environmentOptions = createEnvironmentOptions({
-    emptyOptionLabel: variablesMessages.environmentEmptyOptionLabel,
+    activeScope,
+    emptyOptionLabel:
+      activeScope === 'environment-secrets'
+        ? variablesMessages.environmentEmptySecretOptionLabel
+        : variablesMessages.environmentEmptyOptionLabel,
     environments,
   })
 

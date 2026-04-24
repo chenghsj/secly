@@ -645,6 +645,7 @@ function VariablesPageContent({
   }
   const entryEditorControllerDependencies = {
     refreshCurrentEntries,
+    refreshPageData,
     resetGlobalSearchData,
     store: {
       closeEntryEditorImmediately,
@@ -751,6 +752,8 @@ function VariablesPageContent({
         clearTableEditing,
         loadEnvironmentSecretsForSelection,
         loadEnvironmentVariablesForSelection,
+        refreshCurrentEntries,
+        refreshPageData,
         resetGlobalSearchData,
         updateVariablesSearch,
       },

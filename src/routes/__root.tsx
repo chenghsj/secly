@@ -52,16 +52,17 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: RootAppShell,
+  component: RootDocumentShell,
   notFoundComponent: RootNotFound,
-  shellComponent: RootDocument,
 })
 
-function RootAppShell() {
+function RootDocumentShell() {
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <RootDocument>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </RootDocument>
   )
 }
 

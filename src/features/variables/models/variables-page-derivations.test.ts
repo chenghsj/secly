@@ -44,6 +44,7 @@ describe('variables-page-derivations', () => {
             htmlUrl: 'https://github.com/cheng/foo/environments/preview',
             name: 'preview',
             protectionRulesCount: 0,
+            secretCount: 1,
             updatedAt: '2026-04-20T00:00:00Z',
             variableCount: 0,
           },
@@ -52,8 +53,39 @@ describe('variables-page-derivations', () => {
             htmlUrl: 'https://github.com/cheng/foo/environments/production',
             name: 'production',
             protectionRulesCount: 0,
+            secretCount: 0,
             updatedAt: '2026-04-20T00:00:00Z',
             variableCount: 2,
+          },
+        ],
+        environmentsRepository: 'cheng/foo',
+        selectedRepository: 'cheng/foo',
+      }),
+    ).toBe('production')
+  })
+
+  it('prefers a populated environment for environment secrets', () => {
+    expect(
+      resolveSelectedEnvironment({
+        activeScope: 'environment-secrets',
+        environments: [
+          {
+            createdAt: '2026-04-20T00:00:00Z',
+            htmlUrl: 'https://github.com/cheng/foo/environments/preview',
+            name: 'preview',
+            protectionRulesCount: 0,
+            secretCount: 0,
+            updatedAt: '2026-04-20T00:00:00Z',
+            variableCount: 2,
+          },
+          {
+            createdAt: '2026-04-20T00:00:00Z',
+            htmlUrl: 'https://github.com/cheng/foo/environments/production',
+            name: 'production',
+            protectionRulesCount: 0,
+            secretCount: 1,
+            updatedAt: '2026-04-20T00:00:00Z',
+            variableCount: 0,
           },
         ],
         environmentsRepository: 'cheng/foo',
@@ -129,6 +161,7 @@ describe('variables-page-derivations', () => {
 
     expect(
       createEnvironmentOptions({
+        activeScope: 'environment-variables',
         emptyOptionLabel: '(empty)',
         environments: [
           {
@@ -136,6 +169,7 @@ describe('variables-page-derivations', () => {
             htmlUrl: 'https://github.com/cheng/foo/environments/preview',
             name: 'preview',
             protectionRulesCount: 0,
+            secretCount: 1,
             updatedAt: '2026-04-20T00:00:00Z',
             variableCount: 0,
           },
@@ -144,6 +178,7 @@ describe('variables-page-derivations', () => {
             htmlUrl: 'https://github.com/cheng/foo/environments/production',
             name: 'production',
             protectionRulesCount: 0,
+            secretCount: 0,
             updatedAt: '2026-04-20T00:00:00Z',
             variableCount: 2,
           },
@@ -152,6 +187,7 @@ describe('variables-page-derivations', () => {
             htmlUrl: 'https://github.com/cheng/foo/environments/staging',
             name: 'staging',
             protectionRulesCount: 0,
+            secretCount: 0,
             updatedAt: '2026-04-20T00:00:00Z',
             variableCount: 0,
           },
@@ -161,6 +197,36 @@ describe('variables-page-derivations', () => {
       { label: 'production', value: 'production' },
       { label: 'preview (empty)', value: 'preview' },
       { label: 'staging (empty)', value: 'staging' },
+    ])
+
+    expect(
+      createEnvironmentOptions({
+        activeScope: 'environment-secrets',
+        emptyOptionLabel: '(empty)',
+        environments: [
+          {
+            createdAt: '2026-04-20T00:00:00Z',
+            htmlUrl: 'https://github.com/cheng/foo/environments/preview',
+            name: 'preview',
+            protectionRulesCount: 0,
+            secretCount: 0,
+            updatedAt: '2026-04-20T00:00:00Z',
+            variableCount: 2,
+          },
+          {
+            createdAt: '2026-04-20T00:00:00Z',
+            htmlUrl: 'https://github.com/cheng/foo/environments/production',
+            name: 'production',
+            protectionRulesCount: 0,
+            secretCount: 1,
+            updatedAt: '2026-04-20T00:00:00Z',
+            variableCount: 0,
+          },
+        ],
+      }),
+    ).toEqual([
+      { label: 'production', value: 'production' },
+      { label: 'preview (empty)', value: 'preview' },
     ])
 
     expect(

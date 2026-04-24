@@ -51,6 +51,17 @@ export const scopeTabDisplayOrder: SettingsScope[] = [
   'environment-secrets',
 ]
 
+export function getEnvironmentEntryCount(
+  environment: GhEnvironmentSummary,
+  activeScope: SettingsScope,
+) {
+  if (activeScope === 'environment-secrets') {
+    return environment.secretCount
+  }
+
+  return environment.variableCount
+}
+
 export function resolvePreferredEnvironmentName({
   activeScope,
   environments,
@@ -69,10 +80,14 @@ export function resolvePreferredEnvironmentName({
     return requestedEnvironment
   }
 
-  if (activeScope === 'environment-variables') {
+  if (
+    activeScope === 'environment-variables' ||
+    activeScope === 'environment-secrets'
+  ) {
     return (
-      environments.find((environment) => environment.variableCount > 0)?.name ??
-      ''
+      environments.find(
+        (environment) => getEnvironmentEntryCount(environment, activeScope) > 0,
+      )?.name ?? ''
     )
   }
 

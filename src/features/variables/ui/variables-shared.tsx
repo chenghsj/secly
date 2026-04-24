@@ -204,11 +204,20 @@ export function FieldSkeleton({
 
 export function ScopeTabsSkeleton() {
   return (
-    <div className="inline-grid w-full grid-cols-2 gap-2 rounded-full sm:w-fit sm:grid-flow-col">
-      <RepeatedSkeletons
-        count={4}
-        className="h-8 w-full rounded-full px-3 sm:w-20"
-      />
+    <div className="grid gap-2">
+      <div className="grid gap-1">
+        <Skeleton className="h-3 w-10" />
+        <div className="inline-grid w-fit max-w-full grid-flow-col auto-cols-max gap-1 rounded-lg bg-muted/25 p-0.5">
+          <RepeatedSkeletons count={2} className="h-8 w-20 rounded-md" />
+        </div>
+      </div>
+
+      <div className="grid gap-1">
+        <Skeleton className="h-3 w-10" />
+        <div className="inline-grid w-fit max-w-full grid-flow-col auto-cols-max gap-1 rounded-lg bg-muted/25 p-0.5">
+          <RepeatedSkeletons count={2} className="h-8 w-20 rounded-md" />
+        </div>
+      </div>
     </div>
   )
 }

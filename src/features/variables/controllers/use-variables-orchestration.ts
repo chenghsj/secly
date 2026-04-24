@@ -34,11 +34,11 @@ import {
 import {
   createGlobalSearchResults,
   formatMessage,
+  getEnvironmentEntryCount,
   getScopeConfig,
   isEnvironmentScope,
 } from '#/features/variables/models/variables-helpers'
 import { hasLoadedEntriesForScope } from '#/features/variables/models/variables-page-derivations'
-import { shouldAutoRefreshVariablesOnReturn } from '#/features/variables/models/variables-return-refresh.ts'
 
 const managedRequestKinds = [
   'global-search',
@@ -208,14 +208,7 @@ export function useVariablesOrchestration({
 }: VariablesOrchestrationParams) {
   const selectedRepositoryRef = useRef(selectedRepository)
   const selectedEnvironmentRef = useRef(selectedEnvironment)
-  const lastPageRefreshAtRef = useRef(Date.now())
   const pageRefreshInFlightRef = useRef(false)
-  const returnRefreshStateRef = useRef({
-    isEntryEditorOpen,
-    isEnvironmentCreateOpen,
-    selectedRepository,
-    statusAuthenticated,
-  })
   const refreshPageDataRef = useRef<
     ((options?: { forceRefresh?: boolean }) => Promise<void>) | null
   >(null)
@@ -259,20 +252,6 @@ export function useVariablesOrchestration({
     selectedRepositoryRef.current = selectedRepository
     selectedEnvironmentRef.current = selectedEnvironment
   }, [selectedEnvironment, selectedRepository])
-
-  useEffect(() => {
-    returnRefreshStateRef.current = {
-      isEntryEditorOpen,
-      isEnvironmentCreateOpen,
-      selectedRepository,
-      statusAuthenticated,
-    }
-  }, [
-    isEntryEditorOpen,
-    isEnvironmentCreateOpen,
-    selectedRepository,
-    statusAuthenticated,
-  ])
 
   useEffect(() => {
     if (repositoryVariablesRepository) {
@@ -1018,7 +997,6 @@ export function useVariablesOrchestration({
     }
 
     pageRefreshInFlightRef.current = true
-    lastPageRefreshAtRef.current = Date.now()
     setIsRefreshingRepositories(true)
 
     try {
@@ -1241,12 +1219,12 @@ export function useVariablesOrchestration({
 
   async function applyScopeChange(nextScope: SettingsScope) {
     const preserveEnvironmentOnScopeSwitch =
-      nextScope !== 'environment-variables' ||
+      !isEnvironmentScope(nextScope) ||
       !selectedEnvironment ||
       environments.some(
         (environment) =>
           environment.name === selectedEnvironment &&
-          environment.variableCount > 0,
+          getEnvironmentEntryCount(environment, nextScope) > 0,
       )
 
     await applyScopeViewChange(
@@ -1405,56 +1383,6 @@ export function useVariablesOrchestration({
     selectedRepository,
     statusAuthenticated,
   ])
-
-  useEffect(() => {
-    const refreshOnReturn = () => {
-      const state = returnRefreshStateRef.current
-
-      if (
-        !shouldAutoRefreshVariablesOnReturn({
-          hasActiveRequests: hasActiveManagedRequest(managedRequestKinds),
-          isAuthenticated: state.statusAuthenticated,
-          isDocumentVisible: document.visibilityState === 'visible',
-          isEntryEditorOpen: state.isEntryEditorOpen,
-          isEnvironmentCreateOpen: state.isEnvironmentCreateOpen,
-          isPageRefreshInFlight: pageRefreshInFlightRef.current,
-          lastRefreshAt: lastPageRefreshAtRef.current,
-          now: Date.now(),
-          selectedRepository: state.selectedRepository,
-        })
-      ) {
-        return
-      }
-
-      void refreshPageDataRef.current?.({ forceRefresh: true })
-    }
-
-    const handleFocus = () => {
-      refreshOnReturn()
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') {
-        return
-      }
-
-      refreshOnReturn()
-    }
-
-    const handlePageShow = () => {
-      refreshOnReturn()
-    }
-
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('pageshow', handlePageShow)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('pageshow', handlePageShow)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [hasActiveManagedRequest])
 
   return {
     abortAllManagedRequests,

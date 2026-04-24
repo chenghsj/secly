@@ -221,12 +221,7 @@ export function useConnectController({
   ])
 
   useEffect(() => {
-    const refreshOnReturn = () => {
-      refreshAuthStatus()
-    }
-
     const handleFocus = () => {
-      refreshOnReturn()
       setHasReturnedFromBrowser(true)
     }
 
@@ -235,12 +230,10 @@ export function useConnectController({
         return
       }
 
-      refreshOnReturn()
       setHasReturnedFromBrowser(true)
     }
 
     const handlePageShow = () => {
-      refreshOnReturn()
       setHasReturnedFromBrowser(true)
     }
 

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import {
   afterEach as afterEachTest,
   beforeEach as beforeEachTest,
@@ -77,6 +83,16 @@ vi.mock('#/components/ui/searchable-select', () => ({
 
 const variablesMessages = translations.en.variables
 
+function getScopeButton(groupTestId: string, name: string) {
+  return within(screen.getByTestId(groupTestId)).getByRole('button', { name })
+}
+
+function getSelectButton(name: string) {
+  return screen
+    .getAllByRole('button', { name })
+    .find((element) => !element.hasAttribute('aria-pressed'))
+}
+
 beforeEachTest(() => {
   searchableSelectClickSpy.mockReset()
 })
@@ -130,24 +146,40 @@ function createProps() {
 }
 
 describe('VariablesTargetPanel', () => {
-  it('exposes the scope tabs as a labeled tablist with correctly named tabs', () => {
+  it('exposes separate target-level and setting-type toggle groups with the active selection', () => {
+    render(<VariablesTargetPanel {...createProps()} />)
+
+    const targetLevelGroup = screen.getByTestId('scope-target-level-group')
+    const settingKindGroup = screen.getByTestId('scope-setting-kind-group')
+
+    expect(targetLevelGroup.getAttribute('aria-label')).toBe(
+      variablesMessages.scopeTargetLabel,
+    )
+    expect(
+      getScopeButton(
+        'scope-target-level-group',
+        variablesMessages.environmentLabel,
+      ).getAttribute('aria-pressed'),
+    ).toBe('true')
+    expect(settingKindGroup.getAttribute('aria-label')).toBe(
+      variablesMessages.scopeContentLabel,
+    )
+    expect(
+      getScopeButton(
+        'scope-setting-kind-group',
+        variablesMessages.scopes.repositorySecrets.entryTitle,
+      ).getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+
+  it('does not render scope helper copy', () => {
     render(<VariablesTargetPanel {...createProps()} />)
 
     expect(
-      screen.getByRole('tablist', { name: variablesMessages.scopeLabel }),
-    ).toBeDefined()
-    expect(
-      screen.getByRole('tab', {
-        name: variablesMessages.scopes.repositoryVariables.tabLabel,
-      }),
-    ).toBeDefined()
-    expect(
-      screen
-        .getByRole('tab', {
-          name: variablesMessages.scopes.environmentSecrets.tabLabel,
-        })
-        .getAttribute('aria-selected'),
-    ).toBe('true')
+      screen.queryByText(
+        variablesMessages.scopes.environmentSecrets.description,
+      ),
+    ).toBeNull()
   })
 
   it('does not open selectors when clicking the visible field labels', () => {
@@ -157,6 +189,19 @@ describe('VariablesTargetPanel', () => {
     fireEvent.click(screen.getAllByText(variablesMessages.environmentLabel)[0])
 
     expect(searchableSelectClickSpy).not.toHaveBeenCalled()
+  })
+
+  it('shows repository selection before the scope switcher', () => {
+    render(<VariablesTargetPanel {...createProps()} />)
+
+    const repositorySelect = getSelectButton(variablesMessages.repositoryLabel)
+    const scopeTargetGroup = screen.getByTestId('scope-target-level-group')
+
+    expect(repositorySelect).toBeDefined()
+    expect(
+      repositorySelect?.compareDocumentPosition(scopeTargetGroup) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0)
   })
 
   it('shows add and edit actions together for environment controls by default', () => {
@@ -227,51 +272,54 @@ describe('VariablesTargetPanel', () => {
     ).toBeNull()
   })
 
-  it('prefetches scope data when hovering an inactive scope tab', () => {
+  it('prefetches scope data when hovering an inactive target-level tab', () => {
     const props = createProps()
 
     render(<VariablesTargetPanel {...props} />)
 
     fireEvent.mouseEnter(
-      screen.getByRole('tab', {
-        name: variablesMessages.scopes.repositoryVariables.tabLabel,
-      }),
+      getScopeButton(
+        'scope-target-level-group',
+        variablesMessages.repositoryLabel,
+      ),
     )
 
     expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
-      'repository-variables',
+      'repository-secrets',
     )
   })
 
-  it('prefetches scope data when focusing an inactive scope tab', () => {
+  it('prefetches scope data when focusing an inactive setting-type tab', () => {
     const props = createProps()
 
     render(<VariablesTargetPanel {...props} />)
 
     fireEvent.focus(
-      screen.getByRole('tab', {
-        name: variablesMessages.scopes.repositoryVariables.tabLabel,
-      }),
+      getScopeButton(
+        'scope-setting-kind-group',
+        variablesMessages.scopes.repositoryVariables.entryTitle,
+      ),
     )
 
     expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
-      'repository-variables',
+      'environment-variables',
     )
   })
 
-  it('prefetches scope data on pointer down before switching tabs', () => {
+  it('prefetches scope data on pointer down before switching target levels', () => {
     const props = createProps()
 
     render(<VariablesTargetPanel {...props} />)
 
     fireEvent.pointerDown(
-      screen.getByRole('tab', {
-        name: variablesMessages.scopes.repositoryVariables.tabLabel,
-      }),
+      getScopeButton(
+        'scope-target-level-group',
+        variablesMessages.repositoryLabel,
+      ),
     )
 
     expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
-      'repository-variables',
+      'repository-secrets',
     )
   })
 
@@ -280,9 +328,10 @@ describe('VariablesTargetPanel', () => {
 
     render(<VariablesTargetPanel {...props} />)
 
-    const tab = screen.getByRole('tab', {
-      name: variablesMessages.scopes.repositoryVariables.tabLabel,
-    })
+    const tab = getScopeButton(
+      'scope-target-level-group',
+      variablesMessages.repositoryLabel,
+    )
 
     fireEvent.click(tab)
     fireEvent.focus(tab)
@@ -290,10 +339,46 @@ describe('VariablesTargetPanel', () => {
     fireEvent.pointerDown(tab)
 
     expect(props.actions.onScopeChange).toHaveBeenCalledWith(
-      'repository-variables',
+      'repository-secrets',
     )
     expect(props.actions.onScopePrefetch).toHaveBeenCalledWith(
-      'repository-variables',
+      'repository-secrets',
+    )
+  })
+
+  it('switches to environment scope when clicking the target-level environment toggle', () => {
+    const props = createProps()
+    props.scope.activeScope = 'repository-variables'
+
+    render(<VariablesTargetPanel {...props} />)
+
+    fireEvent.click(
+      getScopeButton(
+        'scope-target-level-group',
+        variablesMessages.environmentLabel,
+      ),
+    )
+
+    expect(props.actions.onScopeChange).toHaveBeenCalledWith(
+      'environment-variables',
+    )
+  })
+
+  it('switches to secrets when clicking the setting-type secrets toggle', () => {
+    const props = createProps()
+    props.scope.activeScope = 'repository-variables'
+
+    render(<VariablesTargetPanel {...props} />)
+
+    fireEvent.click(
+      getScopeButton(
+        'scope-setting-kind-group',
+        variablesMessages.scopes.repositorySecrets.entryTitle,
+      ),
+    )
+
+    expect(props.actions.onScopeChange).toHaveBeenCalledWith(
+      'repository-secrets',
     )
   })
 
@@ -304,11 +389,9 @@ describe('VariablesTargetPanel', () => {
     render(<VariablesTargetPanel {...props} />)
 
     expect(
-      screen
-        .getByRole('button', {
-          name: variablesMessages.environmentLabel,
-        })
-        .hasAttribute('disabled'),
+      getSelectButton(variablesMessages.environmentLabel)?.hasAttribute(
+        'disabled',
+      ),
     ).toBe(false)
   })
 
@@ -318,7 +401,7 @@ describe('VariablesTargetPanel', () => {
 
     const { container } = render(<VariablesTargetPanel {...props} />)
 
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(11)
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(13)
     expect(
       screen.queryByRole('button', { name: variablesMessages.actions.add }),
     ).toBeNull()

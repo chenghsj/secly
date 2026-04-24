@@ -90,6 +90,7 @@ function createEnvironments() {
       htmlUrl: 'https://github.com/cheng/foo/environments/preview',
       name: 'preview',
       protectionRulesCount: 0,
+      secretCount: 1,
       updatedAt: '2026-04-20T00:00:00Z',
       variableCount: 0,
     },
@@ -98,6 +99,7 @@ function createEnvironments() {
       htmlUrl: 'https://github.com/cheng/foo/environments/production',
       name: 'production',
       protectionRulesCount: 0,
+      secretCount: 0,
       updatedAt: '2026-04-21T00:00:00Z',
       variableCount: 2,
     },
@@ -220,6 +222,7 @@ describe('loadVariablesRouteData', () => {
         htmlUrl: 'https://github.com/cheng/foo/environments/preview',
         name: 'preview',
         protectionRulesCount: 0,
+        secretCount: 0,
         updatedAt: '2026-04-20T00:00:00Z',
         variableCount: 0,
       },
@@ -237,8 +240,29 @@ describe('loadVariablesRouteData', () => {
   })
 
   it('preloads environment secrets for the resolved environment secret scope', async () => {
+    mocks.getRepositoryEnvironments.mockResolvedValue([
+      {
+        createdAt: '2026-04-19T00:00:00Z',
+        htmlUrl: 'https://github.com/cheng/foo/environments/preview',
+        name: 'preview',
+        protectionRulesCount: 0,
+        secretCount: 0,
+        updatedAt: '2026-04-20T00:00:00Z',
+        variableCount: 2,
+      },
+      {
+        createdAt: '2026-04-19T00:00:00Z',
+        htmlUrl: 'https://github.com/cheng/foo/environments/production',
+        name: 'production',
+        protectionRulesCount: 0,
+        secretCount: 1,
+        updatedAt: '2026-04-21T00:00:00Z',
+        variableCount: 0,
+      },
+    ])
+
     const data = await loadVariablesRouteData({
-      environment: 'production',
+      environment: 'missing',
       repository: 'cheng/foo',
       scope: 'environment-secrets',
     })

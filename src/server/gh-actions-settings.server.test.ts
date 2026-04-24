@@ -218,6 +218,16 @@ describe('listRepositoryEnvironments', () => {
           },
         ]),
       })
+      .mockResolvedValueOnce({
+        stderr: '',
+        stdout: JSON.stringify([
+          {
+            name: 'API_TOKEN',
+            updatedAt: '2026-04-19T12:45:00Z',
+            visibility: 'private',
+          },
+        ]),
+      })
 
     const environments = await listRepositoryEnvironments('cheng/foo', {
       execRunner,
@@ -228,6 +238,7 @@ describe('listRepositoryEnvironments', () => {
       expect.objectContaining({
         name: 'preview',
         protectionRulesCount: 1,
+        secretCount: 1,
         variableCount: 1,
       }),
     ])

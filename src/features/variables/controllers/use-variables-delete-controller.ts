@@ -14,6 +14,7 @@ import {
   getTargetLabel,
   isEnvironmentScope,
 } from '#/features/variables/models/variables-helpers'
+import { tryRefreshDataAfterMutation } from './variables-mutation-refresh'
 import type { VariablesStore } from '#/features/variables/state/variables-store'
 import type {
   PendingDeleteState,
@@ -53,6 +54,8 @@ type OrchestrationControls = {
     repository: string,
     environmentName: string,
   ) => Promise<void>
+  refreshCurrentEntries: (options?: { forceRefresh?: boolean }) => Promise<void>
+  refreshPageData: (options?: { forceRefresh?: boolean }) => Promise<void>
   resetGlobalSearchData: () => void
   updateVariablesSearch: (
     nextValues: { environment?: string },
@@ -277,6 +280,11 @@ export function useVariablesDeleteController({
         store,
       })
       orchestration.resetGlobalSearchData()
+      await tryRefreshDataAfterMutation({
+        refreshCurrentEntries: orchestration.refreshCurrentEntries,
+        refreshPageData: orchestration.refreshPageData,
+        scope: deleteRequest.scope,
+      })
       store.setSelectedEntryNames((current) =>
         current.filter((selectedName) => !deletedNames.includes(selectedName)),
       )
@@ -320,6 +328,11 @@ export function useVariablesDeleteController({
           store,
         })
         orchestration.resetGlobalSearchData()
+        await tryRefreshDataAfterMutation({
+          refreshCurrentEntries: orchestration.refreshCurrentEntries,
+          refreshPageData: orchestration.refreshPageData,
+          scope: deleteRequest.scope,
+        })
         store.setSelectedEntryNames((current) =>
           current.filter(
             (selectedName) => !deletedNames.includes(selectedName),

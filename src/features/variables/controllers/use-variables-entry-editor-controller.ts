@@ -6,6 +6,7 @@ import {
   saveBulkEntriesForScope,
   saveEntryForScope,
 } from '#/features/variables/domain/variables-actions'
+import { tryRefreshDataAfterMutation } from './variables-mutation-refresh'
 import { upsertEntryInScopeStore } from '#/features/variables/domain/variables-scope-strategies'
 import {
   formatMessage,
@@ -68,6 +69,7 @@ type EntryEditorDraft = {
 
 type EntryEditorDependencies = {
   refreshCurrentEntries: (options?: { forceRefresh?: boolean }) => Promise<void>
+  refreshPageData: (options?: { forceRefresh?: boolean }) => Promise<void>
   resetGlobalSearchData: () => void
   store: StoreControls
   variablesMessages: VariablesMessages
@@ -87,6 +89,7 @@ export function useVariablesEntryEditorController({
   draft: { bulkInput, name, value },
   dependencies: {
     refreshCurrentEntries,
+    refreshPageData,
     resetGlobalSearchData,
     store,
     variablesMessages,
@@ -253,6 +256,11 @@ export function useVariablesEntryEditorController({
       })
       resetGlobalSearchData()
       store.closeEntryEditorImmediately()
+      await tryRefreshDataAfterMutation({
+        refreshCurrentEntries,
+        refreshPageData,
+        scope: entryEditorScope,
+      })
 
       toast.success(
         formatMessage(
@@ -339,7 +347,11 @@ export function useVariablesEntryEditorController({
         scope: entryEditorScope,
       })
 
-      await refreshCurrentEntries({ forceRefresh: true })
+      await tryRefreshDataAfterMutation({
+        refreshCurrentEntries,
+        refreshPageData,
+        scope: entryEditorScope,
+      })
       resetGlobalSearchData()
       store.closeEntryEditorImmediately()
 
@@ -362,7 +374,11 @@ export function useVariablesEntryEditorController({
         ),
       })
     } catch (error) {
-      await refreshCurrentEntries({ forceRefresh: true })
+      await tryRefreshDataAfterMutation({
+        refreshCurrentEntries,
+        refreshPageData,
+        scope: entryEditorScope,
+      })
       resetGlobalSearchData()
 
       toast.error(variablesMessages.feedback.bulkStopped, {
