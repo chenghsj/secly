@@ -4,7 +4,6 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  renameSync,
   readlinkSync,
   rmSync,
   statSync,

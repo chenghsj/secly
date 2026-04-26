@@ -44,6 +44,7 @@ secly/
 │   ├── messages/            # en / zh-CN / zh-TW dictionaries
 │   ├── routes/              # TanStack Start file routes
 │   └── server/              # Local path, gh auth, and data-layer scaffolding
+│       └── db/              # SQLite client, schema, and lock utilities
 ├── .github/workflows/       # Release automation
 ├── dist/                    # Build and release artifacts
 ├── package.json
@@ -227,13 +228,19 @@ That means uninstall will not:
 - rewrite shell profiles
 - delete package-manager state that Secly did not create
 
-## Database Scaffolding
+## Entry Locking
 
-The repository already includes Drizzle scaffolding for future persistence work.
+Lock state is stored in `repository_variable_locks` (see `src/server/db/schema.ts`) with `scope` and `environment_name` columns to support all four scopes. The shared merge and garbage-collection logic lives in `src/server/db/lock-utils.ts`. The toggle server function is in `src/server/gh-repository-variables.functions.ts`.
+
+## Database
+
+The repository includes Drizzle scaffolding for local persistence.
 
 Relevant files:
 
 - `src/server/db/schema.ts`
+- `src/server/db/client.ts`
+- `src/server/db/lock-utils.ts`
 - `drizzle.config.ts`
 - `drizzle/`
 
@@ -244,6 +251,12 @@ npm run db:generate
 npm run db:studio
 ```
 
+After modifying `schema.ts`, push changes to the local SQLite database:
+
+```bash
+npx drizzle-kit push
+```
+
 ## Quality Checks
 
 ```bash
@@ -252,3 +265,4 @@ npm run lint
 npm run test
 npm run build
 ```
+

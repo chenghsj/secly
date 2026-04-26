@@ -57,11 +57,13 @@ describe('VariablesTargetPanelContainer', () => {
         repositoryError={null}
         repositories={[
           {
-            id: 1,
+            canManageVariables: true,
+            isPrivate: true,
             name: 'repo',
             nameWithOwner: 'acme/repo',
+            ownerLogin: 'acme',
             updatedAt: '2025-01-01T00:00:00.000Z',
-            viewerPermission: 'ADMIN',
+            url: 'https://github.com/acme/repo',
             visibility: 'private',
           },
         ]}
@@ -138,11 +140,13 @@ describe('VariablesTargetPanelContainer', () => {
         repositoryError={null}
         repositories={[
           {
-            id: 1,
+            canManageVariables: true,
+            isPrivate: true,
             name: 'repo',
             nameWithOwner: 'acme/repo',
+            ownerLogin: 'acme',
             updatedAt: '2025-01-01T00:00:00.000Z',
-            viewerPermission: 'ADMIN',
+            url: 'https://github.com/acme/repo',
             visibility: 'private',
           },
         ]}

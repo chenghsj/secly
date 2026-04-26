@@ -39,10 +39,10 @@ function normalizeGroupValue(
   }
 
   if (type === 'multiple') {
-    return value ? [value] : []
+    return value ? [value as string] : []
   }
 
-  return value ? [value] : []
+  return value ? [value as string] : []
 }
 
 function mapGroupValueForConsumer(

@@ -6,7 +6,6 @@ import {
   cancelLocalGhAuthLogin,
   logoutLocalGhAccount,
   logoutLocalGhAllAccounts,
-  refreshLocalGhAuthStatus,
   startLocalGhAuthLogin,
   switchLocalGhAuthAccount,
   waitForLocalGhAuthLoginCompletion,
@@ -152,16 +151,6 @@ export function useConnectController({
         }
       : null
 
-  const refreshAuthStatus = () => {
-    void refreshLocalGhAuthStatus()
-      .then((nextStatus) => {
-        setStatus(nextStatus)
-      })
-      .catch(() => {
-        setPhase('error')
-        setErrorMessage(messages.refreshFailed)
-      })
-  }
 
   useEffect(() => {
     if (!launchBaseline || phase !== 'launched') {

@@ -115,7 +115,6 @@ describe('createVariablesTargetPanelProps', () => {
       isDeletingEnvironment: false,
       isEnvironmentActionDisabled: false,
       isEnvironmentEditing: false,
-      isListLoading: false,
       isRefreshingEnvironments: false,
       isRefreshingRepositories: false,
       isTargetRefreshing: false,

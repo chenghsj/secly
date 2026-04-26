@@ -608,4 +608,4 @@ CF_API_TOKEN=...`,
       },
     },
   },
-} as const
+}

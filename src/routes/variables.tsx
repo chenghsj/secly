@@ -588,6 +588,7 @@ function VariablesPageContent({
     startCreateEntry,
     startEditingEntry,
     toggleAllFilteredEntries,
+    toggleVariableLock,
   } = useVariablesRouteActions({
     orchestration: routeActionOrchestration,
     selection: routeActionSelection,
@@ -840,6 +841,7 @@ function VariablesPageContent({
     startEditingEntry,
     toggleAllFilteredEntries,
     toggleEntrySelection,
+    toggleVariableLock,
     valueColumnLabel,
     variablesMessages,
   })
@@ -928,7 +930,6 @@ function VariablesPageContent({
     isDeletingEnvironment,
     isEnvironmentActionDisabled,
     isEnvironmentEditing,
-    isListLoading,
     isRefreshingEnvironments,
     isRefreshingRepositories,
     isTargetRefreshing,

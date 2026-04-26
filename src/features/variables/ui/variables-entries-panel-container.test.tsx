@@ -34,6 +34,7 @@ describe('VariablesEntriesPanelContainer', () => {
           onToggleEntryEditing: vi.fn(),
           onToggleEntrySelection: vi.fn(),
           onToggleFilteredSelection: vi.fn(),
+          onToggleVariableLock: vi.fn(),
         }}
         activeScope="repository-variables"
         allFilteredEntriesSelected={false}

@@ -17,6 +17,7 @@ export type SettingsEntry = {
   updatedAt: string
   value?: string
   visibility?: string | null
+  isLocked?: boolean
 }
 
 export type GlobalSearchResult = SettingsEntry & {

@@ -67,6 +67,7 @@ export function createVariablesEntriesPanelProps({
   startEditingEntry,
   toggleAllFilteredEntries,
   toggleEntrySelection,
+  toggleVariableLock,
   valueColumnLabel,
   variablesMessages,
 }: {
@@ -108,6 +109,7 @@ export function createVariablesEntriesPanelProps({
   startEditingEntry: (entry: SettingsEntry) => void
   toggleAllFilteredEntries: () => void
   toggleEntrySelection: (entryName: string) => void
+  toggleVariableLock: (entryName: string, isLocked: boolean) => void
   valueColumnLabel: string
   variablesMessages: VariablesMessages
 }): VariablesRouteScreenContainerProps['entriesPanel'] {
@@ -141,6 +143,7 @@ export function createVariablesEntriesPanelProps({
       onToggleEntryEditing: (value: boolean) => setIsTableEditing(value),
       onToggleEntrySelection: toggleEntrySelection,
       onToggleFilteredSelection: toggleAllFilteredEntries,
+      onToggleVariableLock: toggleVariableLock,
     },
     activeScope,
     allFilteredEntriesSelected,

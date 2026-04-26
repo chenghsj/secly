@@ -8,6 +8,20 @@ import {
 } from './gh-repository-variables.server'
 import type { GhAuthStatus } from './gh-auth.server'
 
+vi.mock('#/server/db/client', () => ({
+  db: {
+    select: vi.fn(),
+    delete: vi.fn(() => ({ where: vi.fn(() => ({ run: vi.fn() })) })),
+    insert: vi.fn(() => ({ values: vi.fn(() => ({ run: vi.fn() })) })),
+  },
+}))
+
+vi.mock('#/server/db/lock-utils', () => ({
+  mergeLocksAndGarbageCollect: vi.fn((items) =>
+    items.map((entry: any) => ({ ...entry, isLocked: false })),
+  ),
+}))
+
 function createStatus(overrides?: Partial<GhAuthStatus>): GhAuthStatus {
   return {
     activeAccount: {
