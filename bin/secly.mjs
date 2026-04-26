@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const launcherFile = realpathSync(fileURLToPath(import.meta.url))
 const binDir = dirname(launcherFile)
-const bundledEntrypoint = resolve(binDir, '../src/cli/run-cli.js')
+const bundledEntrypoint = resolve(binDir, '../src/cli/run-cli.mjs')
 const sourceEntrypoint = resolve(binDir, '../src/cli/run-cli.ts')
 
 const usesBundledRuntime = existsSync(bundledEntrypoint)

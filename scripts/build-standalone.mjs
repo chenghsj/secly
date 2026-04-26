@@ -16,7 +16,7 @@ const currentFile = fileURLToPath(import.meta.url)
 const scriptDir = dirname(currentFile)
 const repoRoot = resolve(scriptDir, '..')
 const outputRoot = resolve(repoRoot, 'dist/package')
-const runtimeOutputFile = resolve(outputRoot, 'src/cli/run-cli.js')
+const runtimeOutputFile = resolve(outputRoot, 'src/cli/run-cli.mjs')
 const bundledServerOutputFile = resolve(outputRoot, 'dist/server/server.js')
 const rootPackageJson = JSON.parse(
     readFileSync(resolve(repoRoot, 'package.json'), 'utf8'),
@@ -60,11 +60,12 @@ rmSync(outputRoot, { force: true, recursive: true })
 mkdirSync(resolve(outputRoot, 'bin'), { recursive: true })
 mkdirSync(resolve(outputRoot, 'src/cli'), { recursive: true })
 mkdirSync(resolve(outputRoot, 'dist/server'), { recursive: true })
+mkdirSync(resolve(outputRoot, 'build/Release'), { recursive: true })
 
 await build({
     bundle: true,
     banner: {
-        js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+        js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url); import { fileURLToPath as __fileURLToPath } from 'node:url'; import { dirname as __dirnameFunc } from 'node:path'; const __filename = __fileURLToPath(import.meta.url); const __dirname = __dirnameFunc(__filename);",
     },
     format: 'esm',
     outfile: runtimeOutputFile,
@@ -99,7 +100,7 @@ await build({
 await build({
     bundle: true,
     banner: {
-        js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+        js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url); import { fileURLToPath as __fileURLToPath } from 'node:url'; import { dirname as __dirnameFunc } from 'node:path'; const __filename = __fileURLToPath(import.meta.url); const __dirname = __dirnameFunc(__filename);",
     },
     format: 'esm',
     outfile: bundledServerOutputFile,
@@ -116,6 +117,10 @@ cpSync(resolve(repoRoot, 'dist/client'), resolve(outputRoot, 'dist/client'), {
 cpSync(resolve(repoRoot, 'dist/server/assets'), resolve(outputRoot, 'dist/server/assets'), {
     recursive: true,
 })
+cpSync(
+    resolve(repoRoot, 'node_modules/better-sqlite3/build/Release/better_sqlite3.node'),
+    resolve(outputRoot, 'build/Release/better_sqlite3.node'),
+)
 cpSync(resolve(repoRoot, 'README.md'), resolve(outputRoot, 'README.md'))
 writeFileSync(resolve(outputRoot, '.secly-standalone'), '', 'utf8')
 
