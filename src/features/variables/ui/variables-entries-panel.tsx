@@ -1,4 +1,4 @@
-import { PencilLineIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { PencilLineIcon, PlusIcon, Trash2Icon, LockIcon, UnlockIcon } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -97,6 +97,7 @@ type VariablesEntriesPanelActionsProps = {
   onToggleEntryEditing: (value: boolean) => void
   onToggleEntrySelection: (entryName: string) => void
   onToggleFilteredSelection: () => void
+  onToggleVariableLock: (entryName: string, isLocked: boolean) => void
 }
 
 export type VariablesEntriesPanelProps = {
@@ -356,6 +357,7 @@ export function VariablesEntriesPanel({
                           checked={selection.selectedEntryNameSet.has(
                             entry.name,
                           )}
+                          disabled={entry.isLocked}
                           onChange={() =>
                             actions.onToggleEntrySelection(entry.name)
                           }
@@ -363,7 +365,10 @@ export function VariablesEntriesPanel({
                       </TableCell>
                     ) : null}
                     <TableCell>
-                      <code>{entry.name}</code>
+                      <div className="flex items-center gap-2">
+                        <code>{entry.name}</code>
+                        {entry.isLocked && <LockIcon className="h-4 w-4 text-muted-foreground" />}
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[20rem] truncate text-muted-foreground">
                       {isSecretScope(scope.activeScope)
@@ -384,28 +389,53 @@ export function VariablesEntriesPanel({
                     {!listState.isTableEditing ? (
                       <TableCell className="sticky right-0 z-10 w-24 bg-card">
                         <div className="flex justify-end gap-1">
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`${variablesMessages.actions.edit} ${entry.name}`}
-                            title={`${variablesMessages.actions.edit} ${entry.name}`}
-                            onClick={() => actions.onStartEditEntry(entry)}
-                          >
-                            <PencilLineIcon />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`${variablesMessages.actions.delete} ${entry.name}`}
-                            title={`${variablesMessages.actions.delete} ${entry.name}`}
-                            onClick={() =>
-                              actions.onRequestDeleteEntry(entry.name)
-                            }
-                          >
-                            <Trash2Icon />
-                          </Button>
+                          {entry.isLocked ? (
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label={`Unlock ${entry.name}`}
+                              title={`Unlock ${entry.name}`}
+                              onClick={() => actions.onToggleVariableLock(entry.name, false)}
+                            >
+                              <UnlockIcon />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`Lock ${entry.name}`}
+                                title={`Lock ${entry.name}`}
+                                onClick={() => actions.onToggleVariableLock(entry.name, true)}
+                              >
+                                <LockIcon />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`${variablesMessages.actions.edit} ${entry.name}`}
+                                title={`${variablesMessages.actions.edit} ${entry.name}`}
+                                onClick={() => actions.onStartEditEntry(entry)}
+                              >
+                                <PencilLineIcon />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`${variablesMessages.actions.delete} ${entry.name}`}
+                                title={`${variablesMessages.actions.delete} ${entry.name}`}
+                                onClick={() =>
+                                  actions.onRequestDeleteEntry(entry.name)
+                                }
+                              >
+                                <Trash2Icon />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     ) : null}

@@ -39,6 +39,7 @@ function createProps() {
       onToggleEntryEditing: vi.fn(),
       onToggleEntrySelection: vi.fn(),
       onToggleFilteredSelection: vi.fn(),
+      onToggleVariableLock: vi.fn(),
     },
     listState: {
       canMutateCurrentScope: true,

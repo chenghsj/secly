@@ -5,7 +5,9 @@ import {
   listManageableRepositories,
   listRepositoryVariables,
   upsertRepositoryVariable,
+  toggleRepositoryVariableLock,
 } from './gh-repository-variables.server'
+
 
 const repositoryInputSchema = z.object({
   repository: z.string().trim().min(1),
@@ -46,4 +48,26 @@ export const removeRepositoryVariable = createServerFn({
   .inputValidator(deleteRepositoryVariableSchema)
   .handler(async ({ data }) =>
     deleteRepositoryVariable(data.repository, data.name),
+  )
+
+const toggleLockSchema = z.object({
+  name: z.string().trim().min(1),
+  repository: z.string().trim().min(1),
+  isLocked: z.boolean(),
+  scope: z.string().trim().min(1),
+  environmentName: z.string().default(''),
+})
+
+export const toggleVariableLock = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(toggleLockSchema)
+  .handler(async ({ data }) =>
+    toggleRepositoryVariableLock(
+      data.repository,
+      data.name,
+      data.isLocked,
+      data.scope,
+      data.environmentName,
+    ),
   )

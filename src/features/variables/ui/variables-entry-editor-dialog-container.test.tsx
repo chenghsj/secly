@@ -43,7 +43,7 @@ describe('VariablesEntryEditorDialogContainer', () => {
         open
         parsedBulkEntryCount={2}
         parsedBulkErrorCount={0}
-        saveActionLabel={variablesMessages.saveButton}
+        saveActionLabel={variablesMessages.actions.add}
         singleEntryForm={<form aria-label="single form" />}
         variablesMessages={variablesMessages}
       />,

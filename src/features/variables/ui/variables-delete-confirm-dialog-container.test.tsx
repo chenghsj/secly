@@ -33,7 +33,7 @@ describe('VariablesDeleteConfirmDialogContainer', () => {
           isDeleteConfirming: false,
           isTypedDeleteConfirmationMatched: true,
           pendingDelete: null,
-          pendingDeleteActionLabel: variablesMessages.deleteDialogConfirm,
+          pendingDeleteActionLabel: variablesMessages.actions.delete,
           pendingDeleteConfirmationValue: 'preview',
           pendingDeleteDescription: 'Delete preview',
           pendingDeleteEntryNames: ['PREVIEW_TOKEN'],

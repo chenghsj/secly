@@ -92,6 +92,11 @@ Choose a repository, switch scope, and manage repository or environment settings
 - List repositories you can manage from the CLI
 - Create, update, and delete repository variables from the CLI
 - Manage repository and environment variables and secrets from the web UI
+- Lock individual entries locally to prevent accidental edits or deletes
+
+## Entry Locking
+
+Lock any variable or secret locally to prevent accidental edits or deletes. Lock state is stored in the local SQLite database and works across all four scopes. Orphaned locks are cleaned up automatically when the locked entry no longer exists on GitHub.
 
 ## CLI
 

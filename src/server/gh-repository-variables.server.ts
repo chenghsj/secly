@@ -8,8 +8,14 @@ import {
   getCurrentRequestSignal,
   resolveAbortedReadRequestFallback,
 } from './request-abort.server'
+import { db } from './db/client'
+import { repositoryVariableLocks } from './db/schema'
+import { eq, and } from 'drizzle-orm'
+import crypto from 'node:crypto'
+import { mergeLocksAndGarbageCollect } from './db/lock-utils'
 
 const execFileAsync = promisify(execFile)
+
 const VARIABLE_READ_BACK_MAX_ATTEMPTS = 5
 const VARIABLE_READ_BACK_RETRY_DELAY_MS = 200
 
@@ -88,6 +94,7 @@ export type GhRepositoryVariable = {
   name: string
   updatedAt: string
   value: string
+  isLocked?: boolean
 }
 
 export type UpsertRepositoryVariableResult = {
@@ -342,10 +349,14 @@ export async function listRepositoryVariables(
       ),
     )
 
-    return repositoryVariablesSchema
+    const ghVariables = repositoryVariablesSchema
       .parse(JSON.parse(stdout))
       .variables.map(mapRepositoryVariable)
-      .sort((left, right) => left.name.localeCompare(right.name))
+
+    return mergeLocksAndGarbageCollect(ghVariables, {
+      repository,
+      scope: 'repository-variables',
+    }).sort((left, right) => left.name.localeCompare(right.name))
   } catch (error) {
     return resolveAbortedReadRequestFallback({
       error,
@@ -443,4 +454,43 @@ export async function deleteRepositoryVariable(
       buildRepositoryVariablePath(repository, variableName),
     ),
   )
+}
+
+export async function toggleRepositoryVariableLock(
+  repository: string,
+  name: string,
+  isLocked: boolean,
+  scope: string = 'repository-variables',
+  environmentName: string = '',
+): Promise<void> {
+  const variableName = name.trim()
+
+  if (!variableName) {
+    throw new Error('Variable name is required.')
+  }
+
+  // Always delete existing lock first
+  db.delete(repositoryVariableLocks)
+    .where(
+      and(
+        eq(repositoryVariableLocks.repository, repository),
+        eq(repositoryVariableLocks.scope, scope),
+        eq(repositoryVariableLocks.environmentName, environmentName),
+        eq(repositoryVariableLocks.variableName, variableName),
+      ),
+    )
+    .run()
+
+  if (isLocked) {
+    db.insert(repositoryVariableLocks)
+      .values({
+        id: crypto.randomUUID(),
+        repository,
+        scope,
+        environmentName,
+        variableName,
+        createdAt: new Date().toISOString(),
+      })
+      .run()
+  }
 }

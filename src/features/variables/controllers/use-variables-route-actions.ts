@@ -11,6 +11,7 @@ import {
   openEntryEditorForScope,
   startCreateEntryEditor,
 } from '#/features/variables/domain/variables-entry-editor'
+import { toggleVariableLock as toggleVariableLockServerFn } from '#/server/gh-repository-variables.functions'
 import {
   upsertEntryInScopeStore,
   type ScopeStoreControls,
@@ -261,11 +262,15 @@ export function useVariablesRouteActions({
 
       if (allFilteredEntriesSelected) {
         filteredEntries.forEach((entry) => {
-          currentSelection.delete(entry.name)
+          if (!entry.isLocked) {
+            currentSelection.delete(entry.name)
+          }
         })
       } else {
         filteredEntries.forEach((entry) => {
-          currentSelection.add(entry.name)
+          if (!entry.isLocked) {
+            currentSelection.add(entry.name)
+          }
         })
       }
 
@@ -350,6 +355,62 @@ export function useVariablesRouteActions({
     }
   }
 
+  async function toggleVariableLock(entryName: string, isLocked: boolean) {
+    try {
+      await toggleVariableLockServerFn({
+        data: {
+          name: entryName,
+          repository: selectedRepository,
+          isLocked,
+          scope: activeScope,
+          environmentName: selectedEnvironment,
+        },
+      })
+
+      const updater = (current: any[]) =>
+        current.map((v: any) =>
+          v.name === entryName ? { ...v, isLocked } : v,
+        )
+
+      switch (activeScope) {
+        case 'repository-variables':
+          if ('setRepositoryVariables' in store) {
+            // @ts-ignore
+            store.setRepositoryVariables(updater)
+          }
+          break
+        case 'repository-secrets':
+          if ('setRepositorySecrets' in store) {
+            // @ts-ignore
+            store.setRepositorySecrets(updater)
+          }
+          break
+        case 'environment-variables':
+          if ('setEnvironmentVariables' in store) {
+            // @ts-ignore
+            store.setEnvironmentVariables(updater)
+          }
+          break
+        case 'environment-secrets':
+          if ('setEnvironmentSecrets' in store) {
+            // @ts-ignore
+            store.setEnvironmentSecrets(updater)
+          }
+          break
+      }
+
+      toast.success(
+        isLocked
+          ? `Locked ${entryName} successfully.`
+          : `Unlocked ${entryName} successfully.`,
+      )
+    } catch (error) {
+      toast.error('Failed to toggle lock', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
   return {
     handleCreateEnvironment,
     openEnvironmentCreate,
@@ -357,5 +418,6 @@ export function useVariablesRouteActions({
     startCreateEntry,
     startEditingEntry,
     toggleAllFilteredEntries,
+    toggleVariableLock,
   }
 }

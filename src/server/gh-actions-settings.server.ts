@@ -8,6 +8,7 @@ import {
   getCurrentRequestSignal,
   resolveAbortedReadRequestFallback,
 } from './request-abort.server'
+import { mergeLocksAndGarbageCollect } from './db/lock-utils'
 
 const execFileAsync = promisify(execFile)
 
@@ -71,6 +72,7 @@ export type GhActionsSecret = {
   name: string
   updatedAt: string
   visibility: string | null
+  isLocked?: boolean
 }
 
 export type GhActionsVariable = {
@@ -78,6 +80,7 @@ export type GhActionsVariable = {
   name: string
   updatedAt: string
   value: string
+  isLocked?: boolean
 }
 
 export type GhEnvironmentSummary = {
@@ -502,7 +505,11 @@ export async function listRepositorySecrets(
     assertGhReady(status)
     parseRepository(repository)
 
-    return await listSecretsInternal(repository, execRunner)
+    const secrets = await listSecretsInternal(repository, execRunner)
+    return mergeLocksAndGarbageCollect(secrets, {
+      repository,
+      scope: 'repository-secrets',
+    })
   } catch (error) {
     return resolveAbortedReadRequestFallback({
       error,
@@ -730,11 +737,17 @@ export async function listEnvironmentVariables(
     assertGhReady(status)
     parseRepository(repository)
 
-    return await listVariablesInternal(
+    const normalizedEnvName = normalizeEnvironmentName(environmentName)
+    const variables = await listVariablesInternal(
       repository,
       execRunner,
-      normalizeEnvironmentName(environmentName),
+      normalizedEnvName,
     )
+    return mergeLocksAndGarbageCollect(variables, {
+      repository,
+      scope: 'environment-variables',
+      environmentName: normalizedEnvName,
+    })
   } catch (error) {
     return resolveAbortedReadRequestFallback({
       error,
@@ -840,11 +853,17 @@ export async function listEnvironmentSecrets(
     assertGhReady(status)
     parseRepository(repository)
 
-    return await listSecretsInternal(
+    const normalizedEnvName = normalizeEnvironmentName(environmentName)
+    const secrets = await listSecretsInternal(
       repository,
       execRunner,
-      normalizeEnvironmentName(environmentName),
+      normalizedEnvName,
     )
+    return mergeLocksAndGarbageCollect(secrets, {
+      repository,
+      scope: 'environment-secrets',
+      environmentName: normalizedEnvName,
+    })
   } catch (error) {
     return resolveAbortedReadRequestFallback({
       error,

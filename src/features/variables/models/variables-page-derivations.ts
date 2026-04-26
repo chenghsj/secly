@@ -246,14 +246,15 @@ export function createSelectionState({
   filteredEntries: SettingsEntry[]
   selectedEntryNames: string[]
 }) {
+  const selectableEntries = filteredEntries.filter((entry) => !entry.isLocked)
   const selectedEntryNameSet = new Set(selectedEntryNames)
   const hasSelectedEntries = selectedEntryNames.length > 0
   const allFilteredEntriesSelected =
-    filteredEntries.length > 0 &&
-    filteredEntries.every((entry) => selectedEntryNameSet.has(entry.name))
+    selectableEntries.length > 0 &&
+    selectableEntries.every((entry) => selectedEntryNameSet.has(entry.name))
   const hasPartiallySelectedEntries =
     !allFilteredEntriesSelected &&
-    filteredEntries.some((entry) => selectedEntryNameSet.has(entry.name))
+    selectableEntries.some((entry) => selectedEntryNameSet.has(entry.name))
 
   return {
     allFilteredEntriesSelected,
