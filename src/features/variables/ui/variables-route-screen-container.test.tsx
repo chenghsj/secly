@@ -160,6 +160,7 @@ describe('VariablesRouteScreenContainer', () => {
           bulkEntryPanel: <div>bulk panel</div>,
           canMutateEntryEditorScope: true,
           entryEditorDescription: 'Edit entry',
+          entryEditorEnvironment: '',
           entryEditorNeedsEnvironmentSelection: false,
           entryEditorRepository: 'acme/repo',
           entryEditorScope: 'repository-variables',

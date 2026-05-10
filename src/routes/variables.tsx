@@ -57,6 +57,7 @@ import {
 } from '#/features/variables/state/variables-store'
 import { useVariablesRouteStore } from '#/features/variables/state/use-variables-route-store.ts'
 import type { VariablesLoaderData } from '#/features/variables/domain/variables-types'
+
 export const Route = createFileRoute('/variables')({
   validateSearch: validateVariablesSearch,
   staleTime: Infinity,
@@ -852,6 +853,7 @@ function VariablesPageContent({
     bulkEntryPanel,
     canMutateEntryEditorScope,
     entryEditorDescription,
+    entryEditorEnvironment,
     entryEditorNeedsEnvironmentSelection,
     entryEditorRepository,
     entryEditorScope,

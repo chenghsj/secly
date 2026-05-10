@@ -1,4 +1,5 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext } from 'react'
+import type { ReactNode } from 'react'
 import { ShieldAlertIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '#/components/ui/alert'
 import { Badge } from '#/components/ui/badge'
@@ -33,10 +34,12 @@ import {
   FieldError,
   FieldErrorList,
 } from './variables-shared'
+import { getEntryEditorLocationItems } from './variables-entry-editor-location'
 
 type VariablesEntryEditorDialogStateProps = {
   activeTab: EditorTab
   canMutateEntryEditorScope: boolean
+  entryEditorEnvironment: string
   entryEditorNeedsEnvironmentSelection: boolean
   entryEditorRepository: string
   entryEditorScope: SettingsScope
@@ -112,6 +115,37 @@ function useVariablesEntryEditorDialogContext() {
   }
 
   return context
+}
+
+function VariablesEntryEditorLocation() {
+  const { state, variablesMessages } = useVariablesEntryEditorDialogContext()
+  const locationItems = getEntryEditorLocationItems({
+    entryEditorEnvironment: state.entryEditorEnvironment,
+    entryEditorRepository: state.entryEditorRepository,
+    entryEditorScope: state.entryEditorScope,
+    variablesMessages,
+  })
+
+  return (
+    <div
+      aria-label={variablesMessages.editorLocationTitle}
+      className="mt-3 rounded-lg border border-border/70 bg-muted/35 px-3 py-2"
+    >
+      <div className="text-[0.7rem] font-medium text-muted-foreground">
+        {variablesMessages.editorLocationTitle}
+      </div>
+      <dl className="mt-1 grid gap-2 text-xs sm:grid-cols-3">
+        {locationItems.map((item) => (
+          <div key={item.label} className="min-w-0">
+            <dt className="text-muted-foreground">{item.label}</dt>
+            <dd className="truncate font-medium text-foreground">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
 }
 
 function VariablesEntryEditorDialogBody() {
@@ -272,6 +306,7 @@ export function VariablesEntryEditorDialog({
           <DialogHeader>
             <DialogTitle>{content.title}</DialogTitle>
             <DialogDescription>{content.description}</DialogDescription>
+            <VariablesEntryEditorLocation />
           </DialogHeader>
 
           <VariablesEntryEditorDialogBody />

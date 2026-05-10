@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react'
 import type { EditorTab, SettingsScope } from '#/lib/variables-route-search'
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'
-import {
-  VariablesEntryEditorDialog,
-  type VariablesEntryEditorDialogProps,
-} from './variables-entry-editor-dialog'
+import { VariablesEntryEditorDialog } from './variables-entry-editor-dialog'
+import type { VariablesEntryEditorDialogProps } from './variables-entry-editor-dialog'
 
 export type VariablesEntryEditorDialogContainerProps = {
   actions: VariablesEntryEditorDialogProps['actions']
@@ -13,6 +11,7 @@ export type VariablesEntryEditorDialogContainerProps = {
   bulkEntryPanel: ReactNode
   canMutateEntryEditorScope: boolean
   entryEditorDescription: string
+  entryEditorEnvironment: string
   entryEditorNeedsEnvironmentSelection: boolean
   entryEditorRepository: string
   entryEditorScope: SettingsScope
@@ -36,6 +35,7 @@ export function VariablesEntryEditorDialogContainer({
   bulkEntryPanel,
   canMutateEntryEditorScope,
   entryEditorDescription,
+  entryEditorEnvironment,
   entryEditorNeedsEnvironmentSelection,
   entryEditorRepository,
   entryEditorScope,
@@ -65,6 +65,7 @@ export function VariablesEntryEditorDialogContainer({
       state={{
         activeTab,
         canMutateEntryEditorScope,
+        entryEditorEnvironment,
         entryEditorNeedsEnvironmentSelection,
         entryEditorRepository,
         entryEditorScope,

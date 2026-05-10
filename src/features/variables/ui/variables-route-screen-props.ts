@@ -182,6 +182,7 @@ export function createVariablesEntryEditorDialogProps({
   bulkEntryPanel,
   canMutateEntryEditorScope,
   entryEditorDescription,
+  entryEditorEnvironment,
   entryEditorNeedsEnvironmentSelection,
   entryEditorRepository,
   entryEditorScope,
@@ -205,6 +206,7 @@ export function createVariablesEntryEditorDialogProps({
   bulkEntryPanel: ReactNode
   canMutateEntryEditorScope: boolean
   entryEditorDescription: string
+  entryEditorEnvironment: string
   entryEditorNeedsEnvironmentSelection: boolean
   entryEditorRepository: string
   entryEditorScope: SettingsScope
@@ -229,8 +231,8 @@ export function createVariablesEntryEditorDialogProps({
         void handleApplyBulkEntries()
       },
       onCancel: requestCloseEntryEditor,
-      onOpenChange: (open: boolean, details: { reason: string }) => {
-        if (!open && details.reason === 'close-press') {
+      onOpenChange: (isOpen: boolean, details: { reason: string }) => {
+        if (!isOpen && details.reason === 'close-press') {
           requestCloseEntryEditor()
         }
       },
@@ -243,6 +245,7 @@ export function createVariablesEntryEditorDialogProps({
     bulkEntryPanel,
     canMutateEntryEditorScope,
     entryEditorDescription,
+    entryEditorEnvironment,
     entryEditorNeedsEnvironmentSelection,
     entryEditorRepository,
     entryEditorScope,

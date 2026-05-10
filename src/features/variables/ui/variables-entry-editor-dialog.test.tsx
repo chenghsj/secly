@@ -3,6 +3,39 @@ import {
   shouldDisableEntryEditorDismiss,
   shouldDisableEntryEditorTabChange,
 } from './variables-entry-editor-dialog'
+import { translations } from '#/messages'
+import { getEntryEditorLocationItems } from './variables-entry-editor-location'
+
+describe('getEntryEditorLocationItems', () => {
+  it('includes repository, environment, and scope for environment settings', () => {
+    expect(
+      getEntryEditorLocationItems({
+        entryEditorEnvironment: 'production',
+        entryEditorRepository: 'acme/repo',
+        entryEditorScope: 'environment-variables',
+        variablesMessages: translations.en.variables,
+      }),
+    ).toEqual([
+      { label: 'Repository', value: 'acme/repo' },
+      { label: 'Environment', value: 'production' },
+      { label: 'Scope', value: 'Environment variables' },
+    ])
+  })
+
+  it('omits environment for repository settings', () => {
+    expect(
+      getEntryEditorLocationItems({
+        entryEditorEnvironment: '',
+        entryEditorRepository: 'acme/repo',
+        entryEditorScope: 'repository-secrets',
+        variablesMessages: translations.en.variables,
+      }),
+    ).toEqual([
+      { label: 'Repository', value: 'acme/repo' },
+      { label: 'Scope', value: 'Repository secrets' },
+    ])
+  })
+})
 
 describe('shouldDisableEntryEditorTabChange', () => {
   it('disables tab changes while a single-entry save is in flight', () => {

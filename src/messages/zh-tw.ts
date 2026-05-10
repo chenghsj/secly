@@ -319,6 +319,9 @@ export const zhTwMessages = {
     editorSelectEnvironmentTitle: '先選擇環境',
     editorSelectEnvironmentDescription:
       '請先在目標區建立或選擇環境，再編輯環境範圍的設定。',
+    editorLocationTitle: '目前位置',
+    editorLocationMissingRepository: '尚未選擇倉庫',
+    editorLocationMissingEnvironment: '尚未選擇環境',
     noRepositoriesTitle: '找不到可管理的倉庫',
     noRepositoriesDescription:
       '請確認目前活躍的 gh 帳號至少對一個倉庫擁有寫入權限。',

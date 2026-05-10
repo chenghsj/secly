@@ -334,6 +334,9 @@ export const enMessages = {
     editorSelectEnvironmentTitle: 'Choose an environment first',
     editorSelectEnvironmentDescription:
       'Create or select an environment in the target panel before editing environment-scoped settings.',
+    editorLocationTitle: 'Current location',
+    editorLocationMissingRepository: 'No repository selected',
+    editorLocationMissingEnvironment: 'No environment selected',
     noRepositoriesTitle: 'No manageable repositories found',
     noRepositoriesDescription:
       'Make sure the active gh account has write access to at least one repository.',

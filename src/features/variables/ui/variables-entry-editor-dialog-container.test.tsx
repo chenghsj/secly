@@ -32,9 +32,10 @@ describe('VariablesEntryEditorDialogContainer', () => {
         bulkEntryPanel={<div>bulk panel</div>}
         canMutateEntryEditorScope
         entryEditorDescription="Edit a variable"
+        entryEditorEnvironment="production"
         entryEditorNeedsEnvironmentSelection={false}
         entryEditorRepository="acme/repo"
-        entryEditorScope="repository-variables"
+        entryEditorScope="environment-variables"
         entryEditorTitle="Edit variable"
         isBulkEditorActive={false}
         isBulkSaving={false}
@@ -53,6 +54,7 @@ describe('VariablesEntryEditorDialogContainer', () => {
       actions: { onApplyBulkEntries: () => void }
       content: { title: string; description: string }
       state: {
+        entryEditorEnvironment: string
         entryEditorRepository: string
         entryEditorScope: string
         parsedBulkEntryCount: number
@@ -67,8 +69,9 @@ describe('VariablesEntryEditorDialogContainer', () => {
     )
     expect(dialogProps.state).toEqual(
       expect.objectContaining({
+        entryEditorEnvironment: 'production',
         entryEditorRepository: 'acme/repo',
-        entryEditorScope: 'repository-variables',
+        entryEditorScope: 'environment-variables',
         parsedBulkEntryCount: 2,
       }),
     )

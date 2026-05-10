@@ -317,6 +317,9 @@ export const zhCnMessages = {
     editorSelectEnvironmentTitle: '先选择环境',
     editorSelectEnvironmentDescription:
       '请先在左侧目标区创建或选择环境，再编辑环境范围的设置。',
+    editorLocationTitle: '当前位置',
+    editorLocationMissingRepository: '尚未选择仓库',
+    editorLocationMissingEnvironment: '尚未选择环境',
     noRepositoriesTitle: '找不到可管理的仓库',
     noRepositoriesDescription:
       '请确认当前活跃的 gh 账号至少对一个仓库拥有写权限。',
