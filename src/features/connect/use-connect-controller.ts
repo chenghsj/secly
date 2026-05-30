@@ -151,7 +151,6 @@ export function useConnectController({
         }
       : null
 
-
   useEffect(() => {
     if (!launchBaseline || phase !== 'launched') {
       return

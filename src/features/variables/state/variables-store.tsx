@@ -1,4 +1,5 @@
-import { createContext, useContext, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { useStore } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import type {
@@ -12,8 +13,10 @@ import {
   createVariablesResourceState,
   createVariablesUiActions,
   createVariablesUiState,
-  type VariablesStore,
-  type VariablesStoreState,
+} from './variables-store-slices'
+import type {
+  VariablesStore,
+  VariablesStoreState,
 } from './variables-store-slices'
 
 export type {
@@ -89,8 +92,8 @@ export function VariablesStoreProvider({
   )
 }
 
-export function useVariablesStore<Selected>(
-  selector: (state: VariablesStore) => Selected,
+export function useVariablesStore<TSelected>(
+  selector: (state: VariablesStore) => TSelected,
 ) {
   const store = useContext(VariablesStoreContext)
 

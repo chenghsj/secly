@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLI_LOGIN_COMMAND } from '#/lib/product'
 
+import { loadVariablesRouteData } from './variables-route-loader'
+
 const mocks = vi.hoisted(() => ({
   getEnvironmentSecrets: vi.fn(),
   getEnvironmentVariables: vi.fn(),
@@ -31,8 +33,6 @@ vi.mock('#/server/gh-repository-variables.functions', () => ({
   getManageableRepositories: mocks.getManageableRepositories,
   getRepositoryVariables: mocks.getRepositoryVariables,
 }))
-
-import { loadVariablesRouteData } from './variables-route-loader'
 
 function createAuthStatus(authenticated = true) {
   return {

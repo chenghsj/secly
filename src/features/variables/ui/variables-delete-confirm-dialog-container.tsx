@@ -1,8 +1,6 @@
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'
-import {
-  VariablesDeleteConfirmDialog,
-  type VariablesDeleteConfirmDialogProps,
-} from './variables-dialogs'
+import { VariablesDeleteConfirmDialog } from './variables-dialogs'
+import type { VariablesDeleteConfirmDialogProps } from './variables-dialogs'
 
 export type VariablesDeleteConfirmDialogContainerProps = {
   actions: VariablesDeleteConfirmDialogProps['actions']

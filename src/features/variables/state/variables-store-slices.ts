@@ -164,10 +164,10 @@ function resolveStateAction<T>(value: SetStateAction<T>, currentValue: T) {
     : value
 }
 
-export function setStoreField<Key extends keyof VariablesStoreState>(
+export function setStoreField<TKey extends keyof VariablesStoreState>(
   set: VariablesStoreSetter,
-  key: Key,
-  value: SetStateAction<VariablesStoreState[Key]>,
+  key: TKey,
+  value: SetStateAction<VariablesStoreState[TKey]>,
 ) {
   set((state) => ({
     [key]: resolveStateAction(value, state[key]),

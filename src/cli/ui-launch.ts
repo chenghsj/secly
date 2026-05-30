@@ -346,6 +346,52 @@ async function startProductionUiServer(configuration: {
 
   const server = createServer(async (request, reply) => {
     try {
+      // 1. Host Header Validation (DNS Rebinding Protection)
+      const hostHeader = request.headers.host
+      const expectedHost1 = `${configuration.host}:${configuration.port}`
+      const expectedHost2 = `localhost:${configuration.port}`
+      const expectedHost3 = `127.0.0.1:${configuration.port}`
+
+      if (
+        !hostHeader ||
+        (hostHeader !== expectedHost1 &&
+          hostHeader !== expectedHost2 &&
+          hostHeader !== expectedHost3)
+      ) {
+        reply.statusCode = 400
+        reply.setHeader('content-type', 'text/plain; charset=utf-8')
+        reply.end(
+          'Refusing request: Unrecognized Host header (DNS Rebinding protection)',
+        )
+        return
+      }
+
+      // 2. Origin Header Validation (CSRF Protection for state-changing requests)
+      const method = request.method ?? 'GET'
+      const originHeader = request.headers.origin
+      if (originHeader && method !== 'GET' && method !== 'HEAD') {
+        const expectedOrigin1 = `http://${configuration.host}:${configuration.port}`
+        const expectedOrigin2 = `http://localhost:${configuration.port}`
+        const expectedOrigin3 = `http://127.0.0.1:${configuration.port}`
+
+        if (
+          originHeader !== expectedOrigin1 &&
+          originHeader !== expectedOrigin2 &&
+          originHeader !== expectedOrigin3
+        ) {
+          reply.statusCode = 403
+          reply.setHeader('content-type', 'text/plain; charset=utf-8')
+          reply.end(
+            'Refusing request: Cross-Origin POST blocked (CSRF protection)',
+          )
+          return
+        }
+      }
+
+      // 3. Set standard security headers
+      reply.setHeader('X-Frame-Options', 'SAMEORIGIN')
+      reply.setHeader('X-Content-Type-Options', 'nosniff')
+
       const requestUrl = new URL(
         request.url ?? '/',
         getOrigin(request, configuration.host, configuration.port),

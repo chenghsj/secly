@@ -7,9 +7,7 @@ import { eq, and, inArray } from 'drizzle-orm'
  * Also performs garbage collection: removes locks for entries
  * that no longer exist on GitHub.
  */
-export function mergeLocksAndGarbageCollect<
-  T extends { name: string },
->(
+export function mergeLocksAndGarbageCollect<T extends { name: string }>(
   entries: T[],
   {
     repository,

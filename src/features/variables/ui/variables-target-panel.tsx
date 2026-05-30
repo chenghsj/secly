@@ -19,8 +19,8 @@ import {
   VariablesScopeField,
   VariablesTargetFieldsSkeleton,
   VariablesTargetSelectField,
-  type VariablesTargetPanelProps,
 } from './variables-target-panel-sections.tsx'
+import type { VariablesTargetPanelProps } from './variables-target-panel-sections.tsx'
 
 export type { VariablesTargetPanelProps } from './variables-target-panel-sections.tsx'
 

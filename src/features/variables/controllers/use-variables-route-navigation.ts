@@ -1,10 +1,12 @@
 import {
   getNextVariablesEntrySort,
   mergeVariablesSearchUpdate,
-  type VariablesEntrySort,
-  type VariablesEntrySortDirection,
-  type VariablesEntrySortField,
-  type VariablesSearch,
+} from '#/lib/variables-route-search'
+import type {
+  VariablesEntrySort,
+  VariablesEntrySortDirection,
+  VariablesEntrySortField,
+  VariablesSearch,
 } from '#/lib/variables-route-search'
 
 type NavigateVariablesSearch = (options: {

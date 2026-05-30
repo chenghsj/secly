@@ -54,7 +54,7 @@ jobs:
           echo "tap_repository=$tap_repository" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --target_arch=universal
 
       - name: Run unit tests
         run: npm test

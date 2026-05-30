@@ -7,16 +7,19 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_UI_PORT,
   buildUiUrl,
   findAvailablePort,
   getStaticAssetFilePath,
   getUiBuildStatus,
+  launchUi,
   openBrowser,
   resolveNpmCommand,
 } from './ui-launch'
+
+import http from 'node:http'
 
 describe('buildUiUrl', () => {
   it('uses the product default high port when none is specified', () => {
@@ -214,5 +217,146 @@ describe('openBrowser', () => {
       },
     )
     expect(unref).toHaveBeenCalled()
+  })
+})
+
+function httpRequest(
+  url: string,
+  options: http.RequestOptions & { body?: string } = {},
+): Promise<{
+  status: number
+  headers: http.IncomingHttpHeaders
+  text: string
+}> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url)
+    const reqOptions: http.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: options.method ?? 'GET',
+      headers: options.headers ?? {},
+    }
+
+    const req = http.request(reqOptions, (res) => {
+      let data = ''
+      res.setEncoding('utf8')
+      res.on('data', (chunk) => {
+        data += chunk
+      })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          text: data,
+        })
+      })
+    })
+
+    req.on('error', reject)
+
+    if (options.body) {
+      req.write(options.body)
+    }
+    req.end()
+  })
+}
+
+describe('launchUi security validation', () => {
+  let repoRoot: string
+  let clientRoot: string
+  let serverEntry: string
+  const testPort = 45127
+
+  beforeEach(() => {
+    repoRoot = mkdtempSync(join(tmpdir(), 'secly-ui-launch-test-'))
+    clientRoot = join(repoRoot, 'dist/client')
+    serverEntry = join(repoRoot, 'dist/server/server.js')
+
+    mkdirSync(clientRoot, { recursive: true })
+    mkdirSync(dirname(serverEntry), { recursive: true })
+
+    // Bypasses the UI build
+    writeFileSync(join(repoRoot, '.secly-standalone'), '', 'utf8')
+    writeFileSync(
+      serverEntry,
+      `export default {
+        fetch: async (request) => {
+          return new Response('Fetch response ok', { status: 200 })
+        }
+      }`,
+      'utf8',
+    )
+  })
+
+  afterEach(() => {
+    rmSync(repoRoot, { force: true, recursive: true })
+  })
+
+  it('sets expected security headers and validates Host and Origin headers', async () => {
+    const launchResult = await launchUi({
+      host: '127.0.0.1',
+      port: testPort,
+      noOpen: true,
+      repoRoot,
+    })
+
+    try {
+      // 1. Test valid request
+      const validRes = await httpRequest(
+        `http://127.0.0.1:${testPort}/__secly__/health`,
+        {
+          headers: {
+            Host: `127.0.0.1:${testPort}`,
+          },
+        },
+      )
+      expect(validRes.status).toBe(204)
+      expect(validRes.headers['x-secly-ui']).toBe('1')
+      expect(validRes.headers['x-frame-options']).toBe('SAMEORIGIN')
+      expect(validRes.headers['x-content-type-options']).toBe('nosniff')
+
+      // 2. Test invalid Host header (DNS Rebinding protection)
+      const invalidHostRes = await httpRequest(
+        `http://127.0.0.1:${testPort}/__secly__/health`,
+        {
+          headers: {
+            Host: 'attacker.com',
+          },
+        },
+      )
+      expect(invalidHostRes.status).toBe(400)
+      expect(invalidHostRes.text).toContain('Unrecognized Host header')
+
+      // 3. Test invalid Origin header on POST request (CSRF protection)
+      const invalidOriginRes = await httpRequest(
+        `http://127.0.0.1:${testPort}/_server`,
+        {
+          method: 'POST',
+          headers: {
+            Host: `127.0.0.1:${testPort}`,
+            Origin: 'http://evil.com',
+          },
+        },
+      )
+      expect(invalidOriginRes.status).toBe(403)
+      expect(invalidOriginRes.text).toContain('Cross-Origin POST blocked')
+
+      // 4. Test valid Origin header on POST request
+      const validOriginRes = await httpRequest(
+        `http://127.0.0.1:${testPort}/_server`,
+        {
+          method: 'POST',
+          headers: {
+            Host: `127.0.0.1:${testPort}`,
+            Origin: `http://127.0.0.1:${testPort}`,
+          },
+        },
+      )
+      expect(validOriginRes.status).toBe(200)
+      expect(validOriginRes.text).toBe('Fetch response ok')
+    } finally {
+      await launchResult.close()
+    }
   })
 })

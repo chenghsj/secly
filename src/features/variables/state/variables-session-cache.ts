@@ -8,12 +8,12 @@ const PREFETCH_AUTH_IDENTITY_CACHE_LIMIT = 3
 const PREFETCH_REPOSITORY_CACHE_LIMIT = 8
 const PREFETCH_ENVIRONMENT_CACHE_LIMIT = 16
 
-class LruMap<Key, Value> extends Map<Key, Value> {
+class LruMap<TKey, TValue> extends Map<TKey, TValue> {
   constructor(private readonly limit: number) {
     super()
   }
 
-  override get(key: Key) {
+  override get(key: TKey) {
     const value = super.get(key)
 
     if (value === undefined || !super.has(key)) {
@@ -26,7 +26,7 @@ class LruMap<Key, Value> extends Map<Key, Value> {
     return value
   }
 
-  override set(key: Key, value: Value) {
+  override set(key: TKey, value: TValue) {
     if (super.has(key)) {
       super.delete(key)
     }

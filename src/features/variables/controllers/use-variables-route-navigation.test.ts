@@ -42,7 +42,7 @@ describe('useVariablesRouteNavigation', () => {
 
     const options = navigate.mock.calls[0]?.[0]
     expect(
-      options?.search({
+      options.search({
         repository: 'cheng/foo',
         scope: 'repository-secrets',
         sort: 'updated:desc',
@@ -62,9 +62,9 @@ describe('useVariablesRouteNavigation', () => {
     await navigation.setEntrySearchQuery('')
 
     const options = navigate.mock.calls[0]?.[0]
-    expect(options?.replace).toBe(true)
+    expect(options.replace).toBe(true)
     expect(
-      options?.search({
+      options.search({
         query: 'stale',
         repository: 'cheng/foo',
       }),

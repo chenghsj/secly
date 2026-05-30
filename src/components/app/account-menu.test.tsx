@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { cloneElement, isValidElement, type ReactNode } from 'react'
+import { cloneElement, isValidElement } from 'react'
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { translations } from '#/messages'

@@ -6,10 +6,8 @@ import {
 } from '#/features/variables/models/variables-page-derivations'
 import type { GhEnvironmentSummary } from '#/server/gh-actions-settings.server'
 import type { GhRepositorySummary } from '#/server/gh-repository-variables.server'
-import {
-  VariablesTargetPanel,
-  type VariablesTargetPanelProps,
-} from './variables-target-panel'
+import { VariablesTargetPanel } from './variables-target-panel'
+import type { VariablesTargetPanelProps } from './variables-target-panel'
 
 export type VariablesTargetPanelContainerProps = {
   actions: VariablesTargetPanelProps['actions']

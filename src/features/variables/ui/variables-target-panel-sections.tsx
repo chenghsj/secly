@@ -6,10 +6,8 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '#/components/ui/empty'
-import {
-  SearchableSelect,
-  type SearchableSelectItem,
-} from '#/components/ui/searchable-select'
+import { SearchableSelect } from '#/components/ui/searchable-select'
+import type { SearchableSelectItem } from '#/components/ui/searchable-select'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 import type { SettingsScope } from '#/lib/variables-route-search'
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'

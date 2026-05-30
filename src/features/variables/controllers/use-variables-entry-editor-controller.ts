@@ -1,4 +1,5 @@
-import { useMemo, type FormEvent } from 'react'
+import { useMemo } from 'react'
+import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import type { AppLocale } from '#/messages'
 import type { EditorTab, SettingsScope } from '#/lib/variables-route-search'

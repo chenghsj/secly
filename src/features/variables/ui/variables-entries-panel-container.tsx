@@ -8,10 +8,8 @@ import type {
   SettingsEntry,
   VariablesMessages,
 } from '#/features/variables/domain/variables-types'
-import {
-  VariablesEntriesPanel,
-  type VariablesEntriesPanelProps,
-} from './variables-entries-panel'
+import { VariablesEntriesPanel } from './variables-entries-panel'
+import type { VariablesEntriesPanelProps } from './variables-entries-panel'
 
 type ScopeConfig =
   VariablesMessages['scopes'][keyof VariablesMessages['scopes']]

@@ -36,11 +36,14 @@ export const cliSessions = sqliteTable('cli_sessions', {
   updatedAt: text('updated_at').notNull(),
 })
 
-export const repositoryVariableLocks = sqliteTable('repository_variable_locks', {
-  id: text('id').primaryKey(),
-  repository: text('repository').notNull(),
-  scope: text('scope').notNull(),
-  environmentName: text('environment_name').notNull().default(''),
-  variableName: text('variable_name').notNull(),
-  createdAt: text('created_at').notNull(),
-})
+export const repositoryVariableLocks = sqliteTable(
+  'repository_variable_locks',
+  {
+    id: text('id').primaryKey(),
+    repository: text('repository').notNull(),
+    scope: text('scope').notNull(),
+    environmentName: text('environment_name').notNull().default(''),
+    variableName: text('variable_name').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+)

@@ -3,10 +3,8 @@ import type {
   GlobalSearchResult,
   VariablesMessages,
 } from '#/features/variables/domain/variables-types'
-import {
-  VariablesGlobalSearchDialog,
-  type VariablesGlobalSearchDialogProps,
-} from './variables-dialogs'
+import { VariablesGlobalSearchDialog } from './variables-dialogs'
+import type { VariablesGlobalSearchDialogProps } from './variables-dialogs'
 
 export type VariablesGlobalSearchDialogContainerProps = {
   actions: VariablesGlobalSearchDialogProps['actions']

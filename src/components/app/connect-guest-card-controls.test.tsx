@@ -17,6 +17,8 @@ describe('ConnectGuestCardControls', () => {
     render(<ConnectGuestCardControls />)
 
     expect(screen.getByRole('button', { name: 'theme-switcher' })).toBeDefined()
-    expect(screen.getByRole('button', { name: 'locale-switcher' })).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: 'locale-switcher' }),
+    ).toBeDefined()
   })
 })

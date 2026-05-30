@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import {
   ChevronDownIcon,
   ChevronUpIcon,

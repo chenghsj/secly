@@ -1,4 +1,10 @@
-import { PencilLineIcon, PlusIcon, Trash2Icon, LockIcon, UnlockIcon } from 'lucide-react'
+import {
+  PencilLineIcon,
+  PlusIcon,
+  Trash2Icon,
+  LockIcon,
+  UnlockIcon,
+} from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -367,7 +373,9 @@ export function VariablesEntriesPanel({
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <code>{entry.name}</code>
-                        {entry.isLocked && <LockIcon className="h-4 w-4 text-muted-foreground" />}
+                        {entry.isLocked && (
+                          <LockIcon className="h-4 w-4 text-muted-foreground" />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[20rem] truncate text-muted-foreground">
@@ -396,7 +404,9 @@ export function VariablesEntriesPanel({
                               variant="ghost"
                               aria-label={`Unlock ${entry.name}`}
                               title={`Unlock ${entry.name}`}
-                              onClick={() => actions.onToggleVariableLock(entry.name, false)}
+                              onClick={() =>
+                                actions.onToggleVariableLock(entry.name, false)
+                              }
                             >
                               <UnlockIcon />
                             </Button>
@@ -408,7 +418,9 @@ export function VariablesEntriesPanel({
                                 variant="ghost"
                                 aria-label={`Lock ${entry.name}`}
                                 title={`Lock ${entry.name}`}
-                                onClick={() => actions.onToggleVariableLock(entry.name, true)}
+                                onClick={() =>
+                                  actions.onToggleVariableLock(entry.name, true)
+                                }
                               >
                                 <LockIcon />
                               </Button>

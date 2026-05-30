@@ -1,8 +1,6 @@
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'
-import {
-  VariablesEnvironmentCreateDialog,
-  type VariablesEnvironmentCreateDialogProps,
-} from './variables-dialogs'
+import { VariablesEnvironmentCreateDialog } from './variables-dialogs'
+import type { VariablesEnvironmentCreateDialogProps } from './variables-dialogs'
 
 export type VariablesEnvironmentCreateDialogContainerProps = {
   actions: VariablesEnvironmentCreateDialogProps['actions']

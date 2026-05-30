@@ -8,7 +8,6 @@ import {
   toggleRepositoryVariableLock,
 } from './gh-repository-variables.server'
 
-
 const repositoryInputSchema = z.object({
   repository: z.string().trim().min(1),
 })

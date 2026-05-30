@@ -1,7 +1,7 @@
 {
   "name": "secly",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "imports": {
     "#/*": "./src/*"
@@ -44,7 +44,7 @@
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "^1.132.0",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "^12.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "commander": "^14.0.3",
@@ -62,7 +62,6 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "esbuild": "^0.27.7",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
@@ -74,6 +73,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.27.7",
     "jsdom": "^28.1.0",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",

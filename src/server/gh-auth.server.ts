@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { APP_NAME, CLI_NAME } from '../lib/product'
 
 const execFileAsync = promisify(execFile)
+// eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /\u001b\[[0-9;]*m/g
 const ONE_TIME_CODE_PATTERN = /one-time code(?:\s*\(|:)\s*([A-Z0-9-]{6,})\)?/i
 const OPEN_BROWSER_URL_PATTERN =
@@ -390,6 +391,7 @@ async function startManualWebGhAuthLogin(
     }, MANUAL_WEB_LOGIN_TIMEOUT_MS)
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (childExited) {
     throw new Error(
       'GitHub CLI stopped before the browser approval could continue. Start the login flow again.',

@@ -12,10 +12,8 @@ import {
   startCreateEntryEditor,
 } from '#/features/variables/domain/variables-entry-editor'
 import { toggleVariableLock as toggleVariableLockServerFn } from '#/server/gh-repository-variables.functions'
-import {
-  upsertEntryInScopeStore,
-  type ScopeStoreControls,
-} from '#/features/variables/domain/variables-scope-strategies'
+import { upsertEntryInScopeStore } from '#/features/variables/domain/variables-scope-strategies'
+import type { ScopeStoreControls } from '#/features/variables/domain/variables-scope-strategies'
 import {
   formatMessage,
   getScopeConfig,
@@ -368,32 +366,30 @@ export function useVariablesRouteActions({
       })
 
       const updater = (current: any[]) =>
-        current.map((v: any) =>
-          v.name === entryName ? { ...v, isLocked } : v,
-        )
+        current.map((v: any) => (v.name === entryName ? { ...v, isLocked } : v))
 
       switch (activeScope) {
         case 'repository-variables':
           if ('setRepositoryVariables' in store) {
-            // @ts-ignore
+            // @ts-ignore: Dynamic store method selection based on active scope
             store.setRepositoryVariables(updater)
           }
           break
         case 'repository-secrets':
           if ('setRepositorySecrets' in store) {
-            // @ts-ignore
+            // @ts-ignore: Dynamic store method selection based on active scope
             store.setRepositorySecrets(updater)
           }
           break
         case 'environment-variables':
           if ('setEnvironmentVariables' in store) {
-            // @ts-ignore
+            // @ts-ignore: Dynamic store method selection based on active scope
             store.setEnvironmentVariables(updater)
           }
           break
         case 'environment-secrets':
           if ('setEnvironmentSecrets' in store) {
-            // @ts-ignore
+            // @ts-ignore: Dynamic store method selection based on active scope
             store.setEnvironmentSecrets(updater)
           }
           break

@@ -1,30 +1,18 @@
 import type { VariablesMessages } from '#/features/variables/domain/variables-types'
 import { useVariablesRouteFocusManagement } from '#/features/variables/controllers/use-variables-route-focus-management'
-import {
-  VariablesDeleteConfirmDialogContainer,
-  type VariablesDeleteConfirmDialogContainerProps,
-} from './variables-delete-confirm-dialog-container'
-import {
-  VariablesEntriesPanelContainer,
-  type VariablesEntriesPanelContainerProps,
-} from './variables-entries-panel-container'
-import {
-  VariablesEnvironmentCreateDialogContainer,
-  type VariablesEnvironmentCreateDialogContainerProps,
-} from './variables-environment-create-dialog-container'
-import {
-  VariablesEntryEditorDialogContainer,
-  type VariablesEntryEditorDialogContainerProps,
-} from './variables-entry-editor-dialog-container'
-import {
-  VariablesGlobalSearchDialogContainer,
-  type VariablesGlobalSearchDialogContainerProps,
-} from './variables-global-search-dialog-container'
+import { VariablesDeleteConfirmDialogContainer } from './variables-delete-confirm-dialog-container'
+import type { VariablesDeleteConfirmDialogContainerProps } from './variables-delete-confirm-dialog-container'
+import { VariablesEntriesPanelContainer } from './variables-entries-panel-container'
+import type { VariablesEntriesPanelContainerProps } from './variables-entries-panel-container'
+import { VariablesEnvironmentCreateDialogContainer } from './variables-environment-create-dialog-container'
+import type { VariablesEnvironmentCreateDialogContainerProps } from './variables-environment-create-dialog-container'
+import { VariablesEntryEditorDialogContainer } from './variables-entry-editor-dialog-container'
+import type { VariablesEntryEditorDialogContainerProps } from './variables-entry-editor-dialog-container'
+import { VariablesGlobalSearchDialogContainer } from './variables-global-search-dialog-container'
+import type { VariablesGlobalSearchDialogContainerProps } from './variables-global-search-dialog-container'
 import { VariablesRouteScreen } from './variables-route-screen'
-import {
-  VariablesTargetPanelContainer,
-  type VariablesTargetPanelContainerProps,
-} from './variables-target-panel-container'
+import { VariablesTargetPanelContainer } from './variables-target-panel-container'
+import type { VariablesTargetPanelContainerProps } from './variables-target-panel-container'
 
 export type VariablesRouteScreenContainerProps = {
   deleteDialog: VariablesDeleteConfirmDialogContainerProps
